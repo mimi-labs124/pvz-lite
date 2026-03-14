@@ -3,6 +3,9 @@
 ## Near-term
 - 把 CSS 再依 layout / components / game board 拆分
 - 增加更清楚的專案說明與功能列表
+- 繼續調整戰況提示與波次節奏
+- 微調賭徒花 / 分裂殭屍 / Blood Moon 的平衡
+- 把 `game.js` 再拆成更小的系統模組
 - 將遊戲平衡參數整理成可單獨調整的設定檔
 
 ## Mid-term
