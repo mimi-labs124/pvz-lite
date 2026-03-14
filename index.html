@@ -19,6 +19,8 @@
       <div class="pill">🧟 <span id="kills">0</span></div>
       <div class="pill">🌊 <span id="wave">1</span></div>
       <div class="pill">🚜 <span id="mowerCount">5</span></div>
+      <div class="pill">🌦️ <span id="levelHint">穩定發育</span></div>
+      <button id="pauseBtn">暫停</button>
       <select id="levelSelect">
         <option value="easy">關卡：簡單</option>
         <option value="normal" selected>關卡：普通</option>
@@ -42,12 +44,19 @@
       <div class="section muted">
         - 卡牌冷卻時會灰掉<br>
         - 不同關卡會影響刷怪與陽光<br>
-        - 報紙殭屍低血後會暴怒加速<br>
-        - 巨人殭屍血厚、咬很痛
+        - Blood Moon 會讓殭屍變快，但擊殺回更多陽光<br>
+        - 賭徒花傷害很飄，分裂殭屍死後會裂成兩隻
       </div>
     </aside>
 
     <section class="panel board-wrap">
+      <div id="battleStatus" class="battle-status">
+        <div>
+          <strong id="statusTitle">準備中</strong>
+          <div id="statusText" class="muted">種好第一排，別讓殭屍衝進來。</div>
+        </div>
+        <div id="modifierTag" class="modifier-tag">普通日</div>
+      </div>
       <div id="board" class="board"></div>
       <div id="overlay" class="overlay">
         <div class="dialog">
