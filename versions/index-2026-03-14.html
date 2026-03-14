@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>植物大戰殭屍 Lite+</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg1:#0b1020; --bg2:#111827; --panel:rgba(17,24,39,.9); --line:rgba(255,255,255,.12);
+      --text:#e5e7eb; --muted:#94a3b8; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text)}
+    .wrap{max-width:1320px;margin:0 auto;padding:14px}
+    .topbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .title{font-size:clamp(22px,4vw,30px);font-weight:800}
+    .stats{display:flex;gap:8px;flex-wrap:wrap}
+    .pill,button,select,input[type=range]{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text)}
+    .pill,button,select{padding:10px 12px;font-weight:700}
+    button{cursor:pointer}
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:14px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;box-shadow:0 12px 28px rgba(0,0,0,.25)}
+    .shop{display:grid;gap:8px}
+    .card{position:relative;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(31,41,55,.8);cursor:pointer;overflow:hidden}
+    .card.selected{outline:2px solid var(--good)}
+    .card.disabled{filter:grayscale(.85);opacity:.55}
+    .card .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .cooldown{position:absolute;left:0;right:0;bottom:0;height:100%;background:rgba(15,23,42,.68);transform-origin:bottom;pointer-events:none}
+    .cooltxt{position:absolute;right:10px;bottom:8px;font-size:12px;color:#fff;text-shadow:0 1px 2px #000}
+    .muted{color:var(--muted);font-size:13px}
+    .board-wrap{position:relative}
+    .board{position:relative;display:grid;grid-template-rows:repeat(5,92px);gap:8px;background:linear-gradient(180deg,#14532d,#166534);border:2px solid rgba(255,255,255,.12);border-radius:18px;padding:10px;overflow:hidden;min-height:510px;touch-action:manipulation}
+    .lane{display:grid;grid-template-columns:repeat(9,1fr);gap:8px}
+    .cell{position:relative;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);overflow:hidden}
+    .cell:active{transform:scale(.99)}
+    .coord{position:absolute;top:4px;left:6px;font-size:10px;color:rgba(255,255,255,.35)}
+    .plant,.zombie,.pea,.sun,.mower,.boom{position:absolute;display:grid;place-items:center;user-select:none}
+    .plant{inset:8px;border-radius:16px;border:1px solid rgba(255,255,255,.18);font-size:30px;z-index:1}
+    .plant.peashooter{background:rgba(34,197,94,.18)} .plant.sunflower{background:rgba(250,204,21,.16)}
+    .plant.wallnut{background:rgba(180,83,9,.24)} .plant.repeater{background:rgba(22,163,74,.2)}
+    .plant.icepea{background:rgba(56,189,248,.18)} .plant.bomb{background:rgba(239,68,68,.22)}
+    .hp{position:absolute;left:6px;right:6px;height:6px;background:rgba(0,0,0,.35);border-radius:999px;overflow:hidden}
+    .plant .hp{bottom:4px}.zombie .hp{top:-8px}.hp>i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#86efac)}
+    .zombie{width:58px;height:76px;top:8px;border-radius:16px;background:rgba(148,163,184,.16);border:1px solid rgba(255,255,255,.16);font-size:32px;z-index:3;pointer-events:none}
+    .zombie.fast{background:rgba(251,113,133,.15)} .zombie.bucket{background:rgba(156,163,175,.25)}
+    .zombie.cone{background:rgba(251,146,60,.18)} .zombie.giant{background:rgba(239,68,68,.22);width:74px;height:88px;font-size:42px}
+    .zombie.paper.angry{outline:2px solid rgba(239,68,68,.55)}
+    .pea{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#dcfce7,#86efac);box-shadow:0 0 12px rgba(134,239,172,.6);top:38px;z-index:2}
+    .pea.ice{background:radial-gradient(circle at 35% 35%,#dbeafe,#38bdf8);box-shadow:0 0 12px rgba(56,189,248,.6)}
+    .sun{width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff7ae,#facc15);color:#713f12;font-weight:900;border:2px solid rgba(255,255,255,.38);box-shadow:0 0 20px rgba(250,204,21,.45);z-index:50;cursor:pointer}
+    .mower{width:54px;height:42px;border-radius:10px;background:rgba(239,68,68,.32);border:1px solid rgba(255,255,255,.22);font-size:24px;z-index:4}
+    .boom{border-radius:50%;background:radial-gradient(circle,rgba(251,146,60,.65),rgba(239,68,68,.16) 55%,transparent 70%);pointer-events:none;z-index:6}
+    .overlay{position:absolute;inset:0;display:none;place-items:center;background:rgba(2,6,23,.78);z-index:100}.overlay.show{display:grid}
+    .dialog{background:rgba(15,23,42,.96);border:1px solid var(--line);border-radius:22px;padding:22px;text-align:center;width:min(92vw,460px)}
+    .section{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+    input[type=range]{width:100%;accent-color:var(--good)}
+    .mobile-bar{display:none}
+    @media (max-width:920px){
+      .layout{grid-template-columns:1fr}.wrap{padding:8px}.panel{padding:10px}.board{min-height:470px}
+      .mobile-bar{display:flex;gap:8px;overflow:auto;padding-bottom:4px;margin-bottom:10px}
+      .shop{display:none}
+      .card{min-width:170px}
+      button,select,.pill{padding:10px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="title">🌻 植物大戰殭屍 Lite+</div>
+      <div class="muted">有冷卻、關卡、更多殭屍，手機也比較順。</div>
+    </div>
+    <div class="stats">
+      <div class="pill">☀️ <span id="sunCount">150</span></div>
+      <div class="pill">🧟 <span id="kills">0</span></div>
+      <div class="pill">🌊 <span id="wave">1</span></div>
+      <div class="pill">🚜 <span id="mowerCount">5</span></div>
+      <select id="levelSelect">
+        <option value="easy">關卡：簡單</option>
+        <option value="normal" selected>關卡：普通</option>
+        <option value="hard">關卡：困難</option>
+        <option value="survival">關卡：生存</option>
+      </select>
+      <button id="restartBtn">重新開始</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="panel">
+      <div style="font-weight:800;margin-bottom:8px">植物卡</div>
+      <div id="mobileShop" class="mobile-bar"></div>
+      <div id="shop" class="shop"></div>
+      <div class="section">
+        <div style="font-weight:800;margin-bottom:8px">音效</div>
+        <div class="muted">音量：<span id="sfxValue">70%</span></div>
+        <input id="sfxVolume" type="range" min="0" max="100" value="70" />
+      </div>
+      <div class="section muted">
+        - 卡牌冷卻時會灰掉<br>
+        - 不同關卡會影響刷怪與陽光<br>
+        - 報紙殭屍低血後會暴怒加速<br>
+        - 巨人殭屍血厚、咬很痛
+      </div>
+    </aside>
+
+    <section class="panel board-wrap">
+      <div id="board" class="board"></div>
+      <div id="overlay" class="overlay">
+        <div class="dialog">
+          <h2 id="endTitle">遊戲結束</h2>
+          <p id="endText" class="muted"></p>
+          <button id="playAgainBtn">再玩一次</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const rows=5, cols=9;
+const boardEl=document.getElementById('board');
+const shopEl=document.getElementById('shop');
+const mobileShopEl=document.getElementById('mobileShop');
+const sunEl=document.getElementById('sunCount');
+const killsEl=document.getElementById('kills');
+const waveEl=document.getElementById('wave');
+const mowerEl=document.getElementById('mowerCount');
+const levelSelect=document.getElementById('levelSelect');
+const overlayEl=document.getElementById('overlay');
+const endTitleEl=document.getElementById('endTitle');
+const endTextEl=document.getElementById('endText');
+const sfxVolumeEl=document.getElementById('sfxVolume');
+const sfxValueEl=document.getElementById('sfxValue');
+
+const LEVELS={
+  easy:{sunStart:200,sunDrop:4.2,spawnBase:3.8,spawnMin:1.2,spawnBurstWave:99,winKills:60,hpScale:1,speedScale:.95},
+  normal:{sunStart:150,sunDrop:5.2,spawnBase:3.2,spawnMin:.8,spawnBurstWave:8,winKills:80,hpScale:1.08,speedScale:1},
+  hard:{sunStart:125,sunDrop:6.2,spawnBase:2.6,spawnMin:.55,spawnBurstWave:6,winKills:100,hpScale:1.18,speedScale:1.08},
+  survival:{sunStart:150,sunDrop:5.5,spawnBase:2.8,spawnMin:.42,spawnBurstWave:4,winKills:140,hpScale:1.22,speedScale:1.1},
+};
+
+const PLANTS={
+ peashooter:{name:'豌豆射手',emoji:'🌱',cost:100,hp:100,cooldown:4,desc:'穩定輸出'},
+ sunflower:{name:'向日葵',emoji:'🌻',cost:50,hp:80,cooldown:5,desc:'生產陽光'},
+ wallnut:{name:'堅果牆',emoji:'🥔',cost:75,hp:360,cooldown:10,desc:'厚血擋線'},
+ repeater:{name:'雙發射手',emoji:'🌿',cost:175,hp:100,cooldown:7,desc:'一次兩發'},
+ icepea:{name:'冰豆射手',emoji:'🧊',cost:150,hp:95,cooldown:7,desc:'附帶緩速'},
+ bomb:{name:'櫻桃炸彈',emoji:'🍒',cost:125,hp:999,cooldown:14,desc:'範圍爆炸'},
+};
+
+const ZOMBIES={
+ normal:{emoji:'🧟',hp:100,speed:.16,reward:15,bite:18,className:'normal'},
+ cone:{emoji:'🚧',hp:180,speed:.15,reward:22,bite:20,className:'cone'},
+ bucket:{emoji:'🪣',hp:320,speed:.13,reward:30,bite:24,className:'bucket'},
+ fast:{emoji:'🏃',hp:80,speed:.25,reward:18,bite:16,className:'fast'},
+ paper:{emoji:'📰',hp:150,speed:.18,reward:24,bite:18,className:'paper'},
+ giant:{emoji:'🧌',hp:750,speed:.10,reward:60,bite:42,className:'giant'},
+};
+
+let state,loopId,lastTime=0,audioCtx=null; const audioState={sfxVolume:.7,unlocked:false};
+function freshState(){
+ const level=LEVELS[levelSelect.value];
+ return {
+  levelKey:levelSelect.value,sun:level.sunStart,kills:0,wave:1,selectedPlant:'peashooter',plants:new Map(),zombies:[],peas:[],suns:[],booms:[],
+  lawnmowers:Array.from({length:rows},(_,row)=>({row,x:-.25,active:false,used:false})),spawnTimer:0,sunTimer:0,gameOver:false,nextZombieId:1,nextSunId:1,
+  cooldowns:Object.fromEntries(Object.keys(PLANTS).map(k=>[k,0])),
+ };
+}
+function ensureAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();audioState.unlocked=true}
+function beep(freq=440,dur=.08,type='sine',gain=.05){try{ensureAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=gain*audioState.sfxVolume;o.connect(g).connect(audioCtx.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);o.stop(audioCtx.currentTime+dur)}catch{}}
+function sfx(n){if(!audioState.unlocked||audioState.sfxVolume<=0)return; if(n==='sun'){beep(880,.05,'triangle',.08);setTimeout(()=>beep(1174,.08,'triangle',.06),40)} if(n==='plant'){beep(420,.06,'square',.05)} if(n==='pea'){beep(700,.03,'square',.03)} if(n==='ice'){beep(560,.05,'triangle',.04)} if(n==='hit'){beep(180,.06,'sawtooth',.04)} if(n==='boom'){beep(130,.16,'sawtooth',.08)} if(n==='mower'){beep(260,.08,'square',.07)} if(n==='lose'){beep(180,.18,'sawtooth',.07)} if(n==='win'){beep(523,.08,'triangle',.07);setTimeout(()=>beep(659,.08,'triangle',.07),90)}}
+
+function buildShop(){
+ const html=Object.entries(PLANTS).map(([k,p])=>`<div class="card" data-plant="${k}"><div class="row"><strong>${p.emoji} ${p.name}</strong><span>${p.cost} ☀️</span></div><div class="muted">${p.desc}</div><div class="cooldown"></div><div class="cooltxt"></div></div>`).join('');
+ shopEl.innerHTML=html; mobileShopEl.innerHTML=html;
+ [...document.querySelectorAll('.card')].forEach(c=>c.addEventListener('click',()=>{ensureAudio();selectPlant(c.dataset.plant)}));
+}
+function selectPlant(name){state.selectedPlant=name; [...document.querySelectorAll('.card')].forEach(c=>c.classList.toggle('selected',c.dataset.plant===name))}
+function syncStats(){sunEl.textContent=state.sun;killsEl.textContent=state.kills;waveEl.textContent=state.wave;mowerEl.textContent=state.lawnmowers.filter(m=>!m.used).length}
+function updateShop(){[...document.querySelectorAll('.card')].forEach(c=>{const k=c.dataset.plant,p=PLANTS[k],cd=state.cooldowns[k]; const disabled=state.sun<p.cost||cd>0; c.classList.toggle('disabled',disabled); const ov=c.querySelector('.cooldown'); const txt=c.querySelector('.cooltxt'); if(cd>0){ov.style.transform=`scaleY(${Math.min(1,cd/p.cooldown)})`; txt.textContent=`${cd.toFixed(1)}s`;} else {ov.style.transform='scaleY(0)'; txt.textContent='';}})}
+function cellKey(r,c){return `${r}-${c}`}
+function getCellEl(r,c){return boardEl.children[r]?.children[c]}
+function makeBoard(){boardEl.innerHTML=''; for(let r=0;r<rows;r++){const lane=document.createElement('div');lane.className='lane'; for(let c=0;c<cols;c++){const cell=document.createElement('div');cell.className='cell';cell.dataset.row=r;cell.dataset.col=c;cell.innerHTML=`<div class="coord">${r+1}-${c+1}</div>`;cell.addEventListener('click',()=>{ensureAudio();placePlant(r,c)}); lane.appendChild(cell);} boardEl.appendChild(lane);}}
+function flash(el){el.animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'}],{duration:320})}
+function placePlant(r,c){if(state.gameOver)return; const key=cellKey(r,c), type=state.selectedPlant, def=PLANTS[type]; if(state.plants.has(key))return; if(state.cooldowns[type]>0)return flash(shopEl); if(state.sun<def.cost)return flash(sunEl); state.sun-=def.cost; state.cooldowns[type]=def.cooldown; state.plants.set(key,{type,row:r,col:c,hp:def.hp,maxHp:def.hp,attackTimer:0,sunTimer:0,explodeTimer:.8}); syncStats(); updateShop(); sfx(type==='bomb'?'boom':'plant'); render();}
+function addSun(x,y,val=25,fall=.6){state.suns.push({id:state.nextSunId++,x,y,targetY:y+Math.random()*40+10,value:val,life:10,fall})}
+function collectSun(id){const i=state.suns.findIndex(s=>s.id===id); if(i===-1)return; state.sun+=state.suns[i].value; state.suns.splice(i,1); syncStats(); updateShop(); sfx('sun'); render();}
+function zombieKindForWave(w){const pool=['normal']; if(w>=2)pool.push('cone'); if(w>=3)pool.push('paper'); if(w>=4)pool.push('fast'); if(w>=6)pool.push('bucket'); if(w>=9)pool.push('giant'); return pool[Math.floor(Math.random()*pool.length)]}
+function spawnZombie(){const level=LEVELS[state.levelKey], row=Math.floor(Math.random()*rows), kind=zombieKindForWave(state.wave), base=ZOMBIES[kind]; const hpScale=(1+(state.wave-1)*.14)*level.hpScale; state.zombies.push({id:state.nextZombieId++,kind,row,x:cols-.1,hp:Math.round(base.hp*hpScale),maxHp:Math.round(base.hp*hpScale),speed:base.speed*level.speedScale,biteTimer:0,slowTimer:0,angry:false})}
+function triggerBomb(p){sfx('boom'); state.booms.push({row:p.row,col:p.col,life:.22}); state.zombies.forEach(z=>{if(Math.abs(z.row-p.row)<=1&&Math.abs(z.x-p.col)<=1.35)z.hp-=230}); state.plants.delete(cellKey(p.row,p.col))}
+function updatePlants(dt){for(const p of [...state.plants.values()]){if(p.type==='sunflower'){p.sunTimer+=dt; if(p.sunTimer>=6.2){p.sunTimer=0; addSun(p.col*95+18,p.row*100+10,25,.45)}} if(['peashooter','repeater','icepea'].includes(p.type)){const has=state.zombies.some(z=>z.row===p.row&&z.x>=p.col-.1); p.attackTimer+=dt; const rate=p.type==='repeater'?.9:1.1; if(has&&p.attackTimer>=rate){p.attackTimer=0; const shots=p.type==='repeater'?2:1; for(let i=0;i<shots;i++)state.peas.push({row:p.row,x:p.col+.72-i*.12,damage:p.type==='icepea'?18:20,speed:4.8,ice:p.type==='icepea'}); sfx(p.type==='icepea'?'ice':'pea')}} if(p.type==='bomb'){p.explodeTimer-=dt; if(p.explodeTimer<=0)triggerBomb(p)}}}
+function updatePeas(dt){state.peas.forEach(p=>p.x+=p.speed*dt); state.peas=state.peas.filter(p=>p.x<cols+.4); for(const pea of state.peas){const hit=state.zombies.find(z=>z.row===pea.row&&Math.abs(z.x-pea.x)<.28); if(hit){hit.hp-=pea.damage; if(pea.ice)hit.slowTimer=2.8; pea.x=999; sfx('hit')}} state.peas=state.peas.filter(p=>p.x<cols+1)}
+function updateZombies(dt){for(const z of state.zombies){if(z.kind==='paper'&&!z.angry&&z.hp<z.maxHp*.45){z.angry=true; z.speed*=1.9} if(z.slowTimer>0)z.slowTimer-=dt; const eff=z.speed*(z.slowTimer>0?.5:1); const col=Math.floor(z.x); const key=cellKey(z.row,Math.max(0,col)); const plant=state.plants.get(key); const mower=state.lawnmowers[z.row]; if(!mower.used&&!mower.active&&z.x<=.35){mower.active=true; sfx('mower')} if(mower.active)continue; if(plant&&z.x<plant.col+.95){z.biteTimer+=dt; if(z.biteTimer>=.7){z.biteTimer=0; plant.hp-=ZOMBIES[z.kind].bite; if(plant.hp<=0)state.plants.delete(key)}} else z.x-=eff*dt; if(z.x<=-.2&&mower.used){gameEnd(false);break}}}
+function updateMowers(dt){for(const m of state.lawnmowers){if(!m.active)continue; m.x+=4.8*dt; state.zombies.forEach(z=>{if(z.row===m.row&&z.x<=m.x+.55&&z.x>=m.x-.2)z.hp=-999}); if(m.x>cols+.6){m.active=false;m.used=true}}}
+function cleanup(dt){for(const k of Object.keys(state.cooldowns))state.cooldowns[k]=Math.max(0,state.cooldowns[k]-dt); const before=state.zombies.length; state.zombies=state.zombies.filter(z=>z.hp>0); const killed=before-state.zombies.length; if(killed>0){state.kills+=killed; state.sun+=killed*12; syncStats(); updateShop()} state.suns.forEach(s=>{if(s.y<s.targetY)s.y+=s.fall; s.life-=dt}); state.suns=state.suns.filter(s=>s.life>0); state.booms.forEach(b=>b.life-=dt); state.booms=state.booms.filter(b=>b.life>0)}
+function update(dt){if(state.gameOver)return; const level=LEVELS[state.levelKey]; state.wave=1+Math.floor(state.kills/10); state.spawnTimer+=dt; state.sunTimer+=dt; const spawnEvery=Math.max(level.spawnBase-state.wave*.18,level.spawnMin); if(state.spawnTimer>=spawnEvery){state.spawnTimer=0; const burst=state.wave>=level.spawnBurstWave?2:1; for(let i=0;i<burst;i++)spawnZombie()} if(state.sunTimer>=level.sunDrop){state.sunTimer=0; const speed=state.levelKey==='easy'?.35:state.levelKey==='hard'?.85:state.levelKey==='survival'?1.05:.6; addSun(Math.random()*(cols*90-50)+20,10,25,speed)} updatePlants(dt); updatePeas(dt); updateZombies(dt); updateMowers(dt); cleanup(dt); updateShop(); if(state.kills>=level.winKills)gameEnd(true)}
+function render(){boardEl.querySelectorAll('.plant,.zombie,.pea,.sun,.mower,.boom').forEach(e=>e.remove()); for(const p of state.plants.values()){const cell=getCellEl(p.row,p.col); if(!cell)continue; const el=document.createElement('div'); el.className=`plant ${p.type}`; el.innerHTML=`${PLANTS[p.type].emoji}<div class="hp"><i style="width:${Math.max(0,p.hp/p.maxHp*100)}%"></i></div>`; cell.appendChild(el)} for(const z of state.zombies){const el=document.createElement('div'); el.className=`zombie ${ZOMBIES[z.kind].className}${z.angry?' angry':''}`; el.style.left=`${z.x*95+4}px`; el.style.top=`${z.row*100+(z.kind==='giant'?2:10)}px`; el.innerHTML=`${ZOMBIES[z.kind].emoji}<div class="hp"><i style="width:${Math.max(0,z.hp/z.maxHp*100)}%"></i></div>`; if(z.slowTimer>0)el.style.outline='2px solid rgba(56,189,248,.55)'; boardEl.appendChild(el)} for(const p of state.peas){const el=document.createElement('div'); el.className=`pea${p.ice?' ice':''}`; el.style.left=`${p.x*95+20}px`; el.style.top=`${p.row*100+10}px`; boardEl.appendChild(el)} for(const s of state.suns){const el=document.createElement('div'); el.className='sun'; el.textContent='☀'; el.style.left=`${s.x}px`; el.style.top=`${s.y}px`; el.dataset.sunId=s.id; boardEl.appendChild(el)} for(const m of state.lawnmowers){if(m.used&&!m.active)continue; const el=document.createElement('div'); el.className='mower'; el.textContent='🚜'; el.style.left=`${m.x*95+2}px`; el.style.top=`${m.row*100+28}px`; boardEl.appendChild(el)} for(const b of state.booms){const el=document.createElement('div'); el.className='boom'; el.style.left=`${b.col*95-34}px`; el.style.top=`${b.row*100-6}px`; el.style.width='220px'; el.style.height='220px'; boardEl.appendChild(el)}}
+boardEl.addEventListener('pointerdown',e=>{const t=e.target.closest('.sun'); if(t){e.preventDefault();e.stopPropagation();ensureAudio();collectSun(Number(t.dataset.sunId))}})
+function gameEnd(win){state.gameOver=true; overlayEl.classList.add('show'); endTitleEl.textContent=win?'你贏了！':'殭屍進家門了'; endTextEl.textContent=win?`通關 ${levelSelect.options[levelSelect.selectedIndex].text}，擊殺 ${state.kills} 隻，打到第 ${state.wave} 波。`:`你撐到第 ${state.wave} 波，擊殺 ${state.kills} 隻。`; sfx(win?'win':'lose')}
+function frame(ts){if(!lastTime)lastTime=ts; const dt=Math.min((ts-lastTime)/1000,.033); lastTime=ts; update(dt); render(); loopId=requestAnimationFrame(frame)}
+function startGame(){cancelAnimationFrame(loopId); state=freshState(); lastTime=0; makeBoard(); buildShop(); syncStats(); selectPlant('peashooter'); overlayEl.classList.remove('show'); updateShop(); render(); loopId=requestAnimationFrame(frame)}
+function syncAudioUI(){sfxValueEl.textContent=`${Math.round(audioState.sfxVolume*100)}%`}
+sfxVolumeEl.addEventListener('input',()=>{audioState.sfxVolume=Number(sfxVolumeEl.value)/100; syncAudioUI(); ensureAudio()});
+document.getElementById('restartBtn').addEventListener('click',()=>{ensureAudio(); startGame()});
+document.getElementById('playAgainBtn').addEventListener('click',()=>{ensureAudio(); startGame()});
+levelSelect.addEventListener('change',startGame);
+document.addEventListener('pointerdown',ensureAudio,{once:true});
+syncAudioUI(); startGame();
+</script>
+</body>
+</html>

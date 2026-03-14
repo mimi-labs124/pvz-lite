@@ -1,0 +1,15 @@
+export const boardEl = document.getElementById('board');
+export const shopEl = document.getElementById('shop');
+export const mobileShopEl = document.getElementById('mobileShop');
+export const sunEl = document.getElementById('sunCount');
+export const killsEl = document.getElementById('kills');
+export const waveEl = document.getElementById('wave');
+export const mowerEl = document.getElementById('mowerCount');
+export const levelSelect = document.getElementById('levelSelect');
+export const overlayEl = document.getElementById('overlay');
+export const endTitleEl = document.getElementById('endTitle');
+export const endTextEl = document.getElementById('endText');
+export const sfxVolumeEl = document.getElementById('sfxVolume');
+export const sfxValueEl = document.getElementById('sfxValue');
+export const restartBtn = document.getElementById('restartBtn');
+export const playAgainBtn = document.getElementById('playAgainBtn');

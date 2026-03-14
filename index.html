@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>植物大戰殭屍 Lite+</title>
+    <link rel="stylesheet" href="assets/css/styles.css" />
+
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="title">🌻 植物大戰殭屍 Lite+</div>
+      <div class="muted">有冷卻、關卡、更多殭屍，手機也比較順。</div>
+    </div>
+    <div class="stats">
+      <div class="pill">☀️ <span id="sunCount">150</span></div>
+      <div class="pill">🧟 <span id="kills">0</span></div>
+      <div class="pill">🌊 <span id="wave">1</span></div>
+      <div class="pill">🚜 <span id="mowerCount">5</span></div>
+      <select id="levelSelect">
+        <option value="easy">關卡：簡單</option>
+        <option value="normal" selected>關卡：普通</option>
+        <option value="hard">關卡：困難</option>
+        <option value="survival">關卡：生存</option>
+      </select>
+      <button id="restartBtn">重新開始</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="panel">
+      <div style="font-weight:800;margin-bottom:8px">植物卡</div>
+      <div id="mobileShop" class="mobile-bar"></div>
+      <div id="shop" class="shop"></div>
+      <div class="section">
+        <div style="font-weight:800;margin-bottom:8px">音效</div>
+        <div class="muted">音量：<span id="sfxValue">70%</span></div>
+        <input id="sfxVolume" type="range" min="0" max="100" value="70" />
+      </div>
+      <div class="section muted">
+        - 卡牌冷卻時會灰掉<br>
+        - 不同關卡會影響刷怪與陽光<br>
+        - 報紙殭屍低血後會暴怒加速<br>
+        - 巨人殭屍血厚、咬很痛
+      </div>
+    </aside>
+
+    <section class="panel board-wrap">
+      <div id="board" class="board"></div>
+      <div id="overlay" class="overlay">
+        <div class="dialog">
+          <h2 id="endTitle">遊戲結束</h2>
+          <p id="endText" class="muted"></p>
+          <button id="playAgainBtn">再玩一次</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+  <script type="module" src="assets/js/main.js"></script>
+
+</body>
+</html>
