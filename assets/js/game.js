@@ -84,7 +84,7 @@ function update(dt) {
   if (state.spawnTimer >= spawnEvery) {
     state.spawnTimer = 0;
     const burst = state.wave >= level.spawnBurstWave ? 2 : 1;
-    for (let i = 0; i < burst; i++) spawnZombie();
+    for (let i = 0; i < burst; i++) spawnZombie(state);
   }
   if (state.sunTimer >= level.sunDrop) {
     state.sunTimer = 0;
@@ -169,6 +169,3 @@ export function bindGameEvents() {
   });
 }
 
-export function bindAudioUi() {
-  sfxValueEl.textContent = `${Math.round(audioState.sfxVolume * 100)}%`;
-}
