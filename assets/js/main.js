@@ -12,7 +12,7 @@ function updateRelicListUI() {
   if (!relicListEl) return;
   const owned = loadRelics();
   if (owned.length === 0) {
-    relicListEl.innerHTML = '<div class="muted">尚無遺物 — 死亡後可獲得</div>';
+    relicListEl.innerHTML = '<div class="muted">尚無遺物 — 陣亡後可獲得</div>';
     return;
   }
   relicListEl.innerHTML = owned.map(id => {

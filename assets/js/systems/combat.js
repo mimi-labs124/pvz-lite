@@ -260,9 +260,21 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     const slowBoost = z.slowTimer > 0 ? 1 : 0;
     const eff = z.speed * bloodBoost * frozenMult * warpMult;
 
-    const col = Math.floor(z.x);
-    const key = cellKey(z.row, Math.max(0, col));
-    const plant = state.plants.get(key);
+    // 找殭屍接觸到的植物（掃描當前格和前一格）
+    let plant = null;
+    let plantKey = null;
+    const col1 = Math.floor(z.x);
+    const col2 = Math.floor(z.x + 0.95);
+    for (const tryCol of [col1, col2]) {
+      if (tryCol < 0 || tryCol >= cols) continue;
+      const k = cellKey(z.row, tryCol);
+      const p = state.plants.get(k);
+      if (p && z.x < p.col + 0.95) {
+        plant = p;
+        plantKey = k;
+        break;
+      }
+    }
     const mower = state.lawnmowers[z.row];
 
     // 割草機觸發
@@ -278,10 +290,9 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
       if (z.biteTimer >= 0.7) {
         z.biteTimer = 0;
         const biteDmg = ZOMBIES[z.kind]?.bite || 18;
-        // Chaos Awakening: 護盾無敵
         if (state.shieldTimer <= 0) {
           plant.hp -= biteDmg;
-          if (plant.hp <= 0) state.plants.delete(key);
+          if (plant.hp <= 0) state.plants.delete(plantKey);
         }
       }
     } else if (!z.frozen) {

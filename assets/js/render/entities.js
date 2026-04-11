@@ -14,7 +14,7 @@ export function renderEntities(boardEl, state) {
     const cell = getCellEl(boardEl, p.row, p.col);
     if (!cell) continue;
     const el = document.createElement('div');
-    const level = p.level || getPlantLevel(p.xp || 0);
+    const level = Math.min(p.level || getPlantLevel(p.xp || 0), 3);
     const evo = getEvolutionBonus(p.type, level);
     const evoName = evo.name || PLANTS[p.type]?.name || '';
 
