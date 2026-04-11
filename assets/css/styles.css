@@ -81,10 +81,11 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 .card .cost.bad { color: #fca5a5; }
 .card .cost.buff { color: #fde68a; }
 .cooldown {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
-  background: rgba(15, 23, 42, .68); transform-origin: bottom; pointer-events: none;
+  position: absolute; inset: 0;
+  background: rgba(15, 23, 42, .68); transform-origin: top; pointer-events: none;
+  z-index: 1;
 }
-.cooltxt { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+.cooltxt { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; z-index: 2; }
 .muted { color: var(--muted); font-size: 12px; }
 
 /* ── Spell Bar ─────────────────────────────── */
@@ -264,11 +265,13 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
   pointer-events: none; z-index: 6;
 }
 
-/* ── Boss HP Bar ──────────────────────────── */
+/* ── Boss HP Bar — fixed 不佔位 ── */
 .boss-hp-bar {
   display: none; height: 28px; border-radius: 14px;
   background: rgba(15, 23, 42, .8); border: 1px solid rgba(220, 38, 38, .35);
-  overflow: hidden; margin-bottom: 8px; position: relative;
+  overflow: hidden; margin-bottom: 0; position: absolute;
+  top: 0; left: 0; right: 0; z-index: 70;
+  transition: opacity .3s;
 }
 .boss-hp-bar.show { display: block; }
 .boss-hp-fill {

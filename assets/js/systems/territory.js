@@ -1,36 +1,92 @@
 // ═══════════════════════════════════════════════
-// Territory System — 領土推進系統
+// Territory System — 領土推進系統 v2
 // ═══════════════════════════════════════════════
-// 玩家可以花費陽光佔領前線格子，擴展可放置區域。
-// 佔領的領土會產生陽光或提供防禦加成。
-// 每成功防禦一波，可以推進前線。
+// 特殊格位：日光井、防禦塔、加速帶
+// 佔領策略決定你的增益方向
 
 import { cellKey } from '../core/helpers.js';
 
+// ── 特殊格位類型 ──────────────────────────────
+export const TERRAIN_TYPES = {
+  sun_well: {
+    id: 'sun_well', name: '日光井', emoji: '☀️',
+    desc: '每波 +30 陽光',
+    color: 'rgba(250, 204, 21, .2)',
+    borderColor: 'rgba(250, 204, 21, .5)',
+    waveBonus: 30,    // 每波陽光獎勵
+    defenseBonus: 0,
+    attackSpeedBonus: 0,
+  },
+  watchtower: {
+    id: 'watchtower', name: '防禦塔', emoji: '🗼',
+    desc: '該格植物 HP +20%，攻速 +15%',
+    color: 'rgba(59, 130, 246, .2)',
+    borderColor: 'rgba(59, 130, 246, .5)',
+    waveBonus: 0,
+    defenseBonus: 0.20,   // HP 加成
+    attackSpeedBonus: 0.15, // 攻速加成
+  },
+  speed_lane: {
+    id: 'speed_lane', name: '加速帶', emoji: '⚡',
+    desc: '該排所有植物攻速 +10%',
+    color: 'rgba(34, 211, 238, .2)',
+    borderColor: 'rgba(34, 211, 238, .5)',
+    waveBonus: 0,
+    defenseBonus: 0,
+    attackSpeedBonus: 0,     // 自身不加
+    rowAttackSpeedBonus: 0.10, // 整排加成
+  },
+  fortress: {
+    id: 'fortress', name: '堡壘', emoji: '🏰',
+    desc: '該格植物 HP +40%，反傷 +5',
+    color: 'rgba(168, 85, 247, .2)',
+    borderColor: 'rgba(168, 85, 247, .5)',
+    waveBonus: 0,
+    defenseBonus: 0.40,
+    attackSpeedBonus: 0,
+    reflectBonus: 5,
+  },
+};
+
+// ── 地形生成 ──────────────────────────────────
+// 每局隨機生成地形，讓每次領土佈局不同
+export function generateTerrain(rows, cols, startPlayableCols) {
+  const terrain = {}; // cellKey → terrain type id
+  for (let r = 0; r < rows; r++) {
+    for (let c = startPlayableCols; c < cols - 1; c++) {
+      // 35% 機率有特殊地形
+      if (Math.random() < 0.35) {
+        const types = Object.keys(TERRAIN_TYPES);
+        const weights = [40, 25, 20, 15]; // sun_well 常見，fortress 稀有
+        const total = weights.reduce((a, b) => a + b, 0);
+        let roll = Math.random() * total;
+        let chosen = types[0];
+        for (let i = 0; i < types.length; i++) {
+          roll -= weights[i];
+          if (roll <= 0) { chosen = types[i]; break; }
+        }
+        terrain[cellKey(r, c)] = chosen;
+      }
+    }
+  }
+  return terrain;
+}
+
 // ── 領土常數 ──────────────────────────────────
 export const TERRITORY = {
-  // 起始可放置列數（原本的左邊區域）
-  startPlayableCols: 5,   // col 0-4 一開始可以放植物
-  // 殭屍出生區域
+  startPlayableCols: 5,
   zombieSpawnCol: 8,
-  // 每次佔領花費
-  baseConquestCost: 100,
-  // 佔領獎勵：每個佔領格每波結束給予的陽光
-  territorySunPerWave: 15,
-  // 佔領格防禦加成
-  territoryDefenseBonus: 0.05, // HP +5% per territory cell
+  baseConquestCost: 80,
+  territorySunPerWave: 10,
+  territoryDefenseBonus: 0.05,
 };
 
 // ── 計算佔領費用 ──────────────────────────────
 export function conquestCost(state, col) {
   const base = TERRITORY.baseConquestCost;
-  // 越深入越貴
-  const distanceCost = (col - TERRITORY.startPlayableCols) * 40;
-  // 波次加成
-  const waveScale = 1 + state.wave * 0.05;
+  const distanceCost = (col - TERRITORY.startPlayableCols) * 30;
+  const waveScale = 1 + state.wave * 0.04;
   const total = Math.round((base + distanceCost) * waveScale);
-
-  // 遺物減免
   const reduction = state.relicBuffs?.territoryCostReduction || 0;
   return Math.round(total * (1 - reduction));
 }
@@ -44,41 +100,40 @@ export function conquestReward(state) {
 
 // ── 初始化領土狀態 ────────────────────────────
 export function initTerritory(state) {
-  const maxCol = 8; // 棋盤最大列
   state.territory = {
-    // 前線列：當前可放置的最右邊列（不含）
     frontline: TERRITORY.startPlayableCols,
-    // 已佔領的格子
     conquered: new Set(),
-    // 佔領格子的行（所有行都可以佔）
-    maxCol,
+    maxCol: 8,
+    terrain: generateTerrain(rows, 5, TERRITORY.startPlayableCols),
   };
+}
+
+const rows = 5; // 用常數避免循環 import
+
+// ── 取得格位地形 ──────────────────────────────
+export function getCellTerrain(state, r, c) {
+  const key = cellKey(r, c);
+  const terrainId = state.territory?.terrain?.[key];
+  if (!terrainId) return null;
+  return TERRAIN_TYPES[terrainId] || null;
 }
 
 // ── 嘗試佔領一格 ──────────────────────────────
 export function tryConquest(state, row, col) {
-  // 只能佔領前線下一列
   if (col !== state.territory.frontline) return { ok: false, msg: '只能佔領前線下一列' };
-  // 不能超過殭屍出生區
   if (col >= TERRITORY.zombieSpawnCol) return { ok: false, msg: '無法佔領殭屍出生區' };
-  // 已經佔領過
   if (state.territory.conquered.has(cellKey(row, col))) return { ok: false, msg: '已佔領' };
 
   const cost = conquestCost(state, col);
   if (state.sun < cost) return { ok: false, msg: `陽光不足（需要 ${cost}）` };
 
-  // 執行佔領
   state.sun -= cost;
   state.territory.conquered.add(cellKey(row, col));
 
-  // 檢查是否整列都佔領了（推進前線）
-  const allRowConquered = true;
+  // 檢查是否整列都佔領了
   let allConquered = true;
   for (let r = 0; r < 5; r++) {
-    if (!state.territory.conquered.has(cellKey(r, col))) {
-      allConquered = false;
-      break;
-    }
+    if (!state.territory.conquered.has(cellKey(r, col))) { allConquered = false; break; }
   }
 
   if (allConquered) {
@@ -86,20 +141,31 @@ export function tryConquest(state, row, col) {
     return { ok: true, msg: `🗡️ 前線推進到第 ${col + 1} 列！`, advanced: true };
   }
 
-  return { ok: true, msg: `佔領成功！（${state.territory.conquered.size} 格已佔領）`, advanced: false };
+  // 告訴玩家佔領了什麼地形
+  const terrain = getCellTerrain(state, row, col);
+  const terrainMsg = terrain ? `（${terrain.emoji} ${terrain.name}）` : '';
+  return { ok: true, msg: `佔領成功！${terrainMsg}`, advanced: false };
 }
 
 // ── 波次結束時的領土獎勵 ──────────────────────
 export function territoryWaveReward(state) {
   if (!state.territory || state.territory.conquered.size === 0) return 0;
-  const reward = conquestReward(state) * state.territory.conquered.size;
+  let reward = 0;
+  for (const key of state.territory.conquered) {
+    const baseReward = conquestReward(state);
+    // 地形加成
+    const [r, c] = key.split('-').map(Number);
+    const terrain = getCellTerrain(state, r, c);
+    const terrainBonus = terrain?.waveBonus || 0;
+    reward += baseReward + terrainBonus;
+  }
   state.sun += reward;
   return reward;
 }
 
 // ── 檢查格子是否可放置 ──────────────────────
 export function isCellPlayable(state, col) {
-  if (!state.territory) return col < 5; // fallback
+  if (!state.territory) return col < 5;
   return col < state.territory.frontline;
 }
 
@@ -109,44 +175,66 @@ export function isConqueredCell(state, row, col) {
   return state.territory.conquered.has(cellKey(row, col));
 }
 
-// ── 佔領格防禦加成 ──────────────────────────
+// ── 佔領格防禦加成（含地形）──────────────────
 export function territoryDefenseMultiplier(state, row, col) {
   if (!isConqueredCell(state, row, col)) return 1.0;
-  return 1.0 + TERRITORY.territoryDefenseBonus;
+  const terrain = getCellTerrain(state, row, col);
+  const base = 1.0 + TERRITORY.territoryDefenseBonus;
+  const terrainBonus = terrain?.defenseBonus || 0;
+  return base + terrainBonus;
 }
 
-// ── 自動推進（波次獎勵）──────────────────────
-// 每防禦 3 波，自動佔領前線一個隨機格子
+// ── 佔領格攻速加成 ──────────────────────────
+export function territoryAttackSpeedBonus(state, row, col) {
+  if (!isConqueredCell(state, row, col)) return 0;
+  const terrain = getCellTerrain(state, row, col);
+  return terrain?.attackSpeedBonus || 0;
+}
+
+// ── 整排攻速加成（加速帶）────────────────────
+export function territoryRowAttackSpeedBonus(state, row) {
+  if (!state.territory) return 0;
+  let bonus = 0;
+  for (const key of state.territory.conquered) {
+    const [r, c] = key.split('-').map(Number);
+    if (r === row) {
+      const terrain = getCellTerrain(state, r, c);
+      if (terrain?.rowAttackSpeedBonus) bonus += terrain.rowAttackSpeedBonus;
+    }
+  }
+  return bonus;
+}
+
+// ── 反傷加成（堡壘）───────────────────────────
+export function territoryReflectBonus(state, row, col) {
+  if (!isConqueredCell(state, row, col)) return 0;
+  const terrain = getCellTerrain(state, row, col);
+  return terrain?.reflectBonus || 0;
+}
+
+// ── 自動佔領（每 3 波）──────────────────────
 export function autoConquestCheck(state) {
   if (!state.territory) return null;
   if (state.wave % 3 !== 0) return null;
   if (state.territory.frontline >= TERRITORY.zombieSpawnCol) return null;
 
   const col = state.territory.frontline;
-  // 找還沒佔領的行
   const available = [];
   for (let r = 0; r < 5; r++) {
-    if (!state.territory.conquered.has(cellKey(r, col))) {
-      available.push(r);
-    }
+    if (!state.territory.conquered.has(cellKey(r, col))) available.push(r);
   }
   if (available.length === 0) return null;
 
   const row = available[Math.floor(Math.random() * available.length)];
   state.territory.conquered.add(cellKey(row, col));
 
-  // 檢查是否整列完成
   let allConquered = true;
   for (let r = 0; r < 5; r++) {
-    if (!state.territory.conquered.has(cellKey(r, col))) {
-      allConquered = false;
-      break;
-    }
+    if (!state.territory.conquered.has(cellKey(r, col))) { allConquered = false; break; }
   }
   if (allConquered) {
     state.territory.frontline = col + 1;
     return { row, col, advanced: true };
   }
-
   return { row, col, advanced: false };
 }

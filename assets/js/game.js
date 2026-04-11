@@ -36,7 +36,9 @@ import { tryHarnessChaos } from './systems/harness.js';
 import {
   initTerritory, tryConquest, territoryWaveReward,
   isCellPlayable, isConqueredCell, territoryDefenseMultiplier,
+  territoryAttackSpeedBonus, territoryRowAttackSpeedBonus, territoryReflectBonus,
   autoConquestCheck, conquestCost, conquestReward,
+  getCellTerrain, TERRAIN_TYPES,
 } from './systems/territory.js';
 
 let state;
@@ -331,12 +333,15 @@ function placePlant(r, c) {
   hpWithBuff = Math.round(hpWithBuff * terrDef);
 
   const startXp = state.relicBuffs.startXpBonus || 0;
+  const terrAtkBonus = territoryAttackSpeedBonus(state, r, c) + territoryRowAttackSpeedBonus(state, r);
+  const terrReflect = territoryReflectBonus(state, r, c);
 
   state.plants.set(key, {
     type, row: r, col: c,
     hp: hpWithBuff, maxHp: hpWithBuff,
     attackTimer: 0, sunTimer: 0, explodeTimer: 0.8,
     level: 1, xp: startXp,
+    terrAtkBonus, terrReflect,
   });
 
   syncStats();
@@ -457,6 +462,27 @@ function applyTerritoryVisuals() {
     cell.classList.toggle('unplayable', !isCellPlayable(state, c));
     cell.classList.toggle('conquered', isConqueredCell(state, r, c));
     cell.classList.toggle('frontline', c === state.territory.frontline);
+
+    // 地形標記
+    const terrain = getCellTerrain(state, r, c);
+    const oldTerrainEl = cell.querySelector('.terrain-marker');
+    if (terrain && !isCellPlayable(state, c)) {
+      // 還沒佔領的地形格 — 顯示地形預覽
+      if (!oldTerrainEl) {
+        const marker = document.createElement('div');
+        marker.className = 'terrain-marker';
+        marker.textContent = terrain.emoji;
+        marker.title = `${terrain.name}：${terrain.desc}`;
+        cell.appendChild(marker);
+      }
+    } else if (terrain && isConqueredCell(state, r, c)) {
+      // 已佔領的地形格
+      if (oldTerrainEl) oldTerrainEl.remove();
+      cell.style.background = terrain.color;
+      cell.style.borderColor = terrain.borderColor;
+    } else {
+      if (oldTerrainEl) oldTerrainEl.remove();
+    }
   }
 }
 

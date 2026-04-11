@@ -23,17 +23,17 @@ export const PLANTS = {
 
 // ── 殭屍定義 ──────────────────────────────────
 export const ZOMBIES = {
-  normal:   { emoji: '🧟', hp: 100, speed: 0.16, reward: 15, bite: 18, className: 'normal' },
-  cone:     { emoji: '🚧', hp: 180, speed: 0.15, reward: 22, bite: 20, className: 'cone' },
-  bucket:   { emoji: '🪣', hp: 320, speed: 0.13, reward: 30, bite: 24, className: 'bucket' },
-  fast:     { emoji: '🏃', hp: 80,  speed: 0.25, reward: 18, bite: 16, className: 'fast' },
-  paper:    { emoji: '📰', hp: 150, speed: 0.18, reward: 24, bite: 18, className: 'paper' },
-  giant:    { emoji: '🧌', hp: 750, speed: 0.10, reward: 60, bite: 42, className: 'giant' },
-  splitter: { emoji: '🪓', hp: 170, speed: 0.17, reward: 26, bite: 18, className: 'splitter' },
-  mini:     { emoji: '🧟', hp: 45,  speed: 0.30, reward: 6,  bite: 10, className: 'mini' },
-  healer:   { emoji: '💉', hp: 120, speed: 0.12, reward: 35, bite: 12, className: 'healer' },
-  necro:    { emoji: '💀', hp: 200, speed: 0.14, reward: 45, bite: 22, className: 'necro' },
-  boss:     { emoji: '👾', hp: 2000,speed: 0.08, reward: 120,bite: 55, className: 'boss' },
+  normal:   { emoji: '🧟', hp: 130, speed: 0.19, reward: 15, bite: 20, className: 'normal' },
+  cone:     { emoji: '🚧', hp: 230, speed: 0.17, reward: 22, bite: 24, className: 'cone' },
+  bucket:   { emoji: '🪣', hp: 420, speed: 0.14, reward: 30, bite: 30, className: 'bucket' },
+  fast:     { emoji: '🏃', hp: 100, speed: 0.28, reward: 18, bite: 18, className: 'fast' },
+  paper:    { emoji: '📰', hp: 190, speed: 0.21, reward: 24, bite: 22, className: 'paper' },
+  giant:    { emoji: '🧌', hp: 1000, speed: 0.11, reward: 60, bite: 50, className: 'giant' },
+  splitter: { emoji: '🪓', hp: 210, speed: 0.19, reward: 26, bite: 22, className: 'splitter' },
+  mini:     { emoji: '🧟', hp: 55,  speed: 0.34, reward: 6,  bite: 12, className: 'mini' },
+  healer:   { emoji: '💉', hp: 150, speed: 0.13, reward: 35, bite: 14, className: 'healer' },
+  necro:    { emoji: '💀', hp: 260, speed: 0.15, reward: 45, bite: 26, className: 'necro' },
+  boss:     { emoji: '👾', hp: 2500,speed: 0.09, reward: 120,bite: 65, className: 'boss' },
 };
 
 // ── 植物進化路線 ──────────────────────────────
@@ -145,8 +145,8 @@ export function zombieKindForWave(w) {
 
 // ── 波次殭屍數量 ───────────────────────────────
 export function zombiesPerWave(wave, isBoss) {
-  const base = Math.min(3 + Math.floor(wave * 0.8), 15);
-  return isBoss ? base + 3 : base;
+  const base = Math.min(4 + Math.floor(wave * 1.0), 18);
+  return isBoss ? base + 4 : base;
 }
 
 // ── 殺敵目標 (每波需要清完才算過關) ─────────────

@@ -9,7 +9,7 @@ export function createRunState() {
     totalKills: 0,
 
     // ── 經濟 ──
-    sun: 150,
+    sun: 100,
     kills: 0,
 
     // ── 牌組系統 ──

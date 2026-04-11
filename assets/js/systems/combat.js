@@ -23,9 +23,11 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
   const attackSpeedBuff = 1 + (state.globalBuffs.attackSpeed || 0) + (state.relicBuffs?.attackSpeed || 0);
   const fertileBuff = isChaosActive(state, 'fertile') ? 1.4 : 1;
   const critChance = state.globalBuffs.critChance || 0;
-  const shielded = state.shieldTimer > 0; // Chaos Awakening: 護盾
+  const shielded = state.shieldTimer > 0;
 
   for (const p of [...state.plants.values()]) {
+    // 地形攻速加成（Speed Lane / Watchtower 等）
+    const terrSpeedMult = 1 + (p.terrAtkBonus || 0);
     // 自癒 buff
     if (state.globalBuffs.regen > 0) {
       p.hp = Math.min(p.maxHp, p.hp + state.globalBuffs.regen * dt);
@@ -43,7 +45,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
     // 向日葵
     if (p.type === 'sunflower') {
       p.sunTimer += dt;
-      const sunInterval = 6.2 / (attackSpeedBuff * fertileBuff);
+      const sunInterval = 6.2 / (attackSpeedBuff * fertileBuff * terrSpeedMult);
       if (p.sunTimer >= sunInterval) {
         p.sunTimer = 0;
         const sunValue = Math.round((25 + (evo.bonusSun || 0)) * (1 + (state.globalBuffs.sunIncome || 0)));
@@ -61,7 +63,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
       const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1);
       p.attackTimer += dt;
       let rate = p.type === 'repeater' ? 0.9 : p.type === 'gambler' ? 1.35 : p.type === 'firepea' ? 1.0 : 1.1;
-      rate /= (attackSpeedBuff * fertileBuff);
+      rate /= (attackSpeedBuff * fertileBuff * terrSpeedMult);
       if (has && p.attackTimer >= rate) {
         p.attackTimer = 0;
         const baseDmg = 20 + (evo.bonusDmg || 0);
@@ -115,7 +117,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
       }
       const hasTarget = state.zombies.some(z => targetRows.includes(z.row) && z.x >= p.col - 0.1);
       p.attackTimer += dt;
-      const rate = 1.25 / (attackSpeedBuff * fertileBuff);
+      const rate = 1.25 / (attackSpeedBuff * fertileBuff * terrSpeedMult);
       if (hasTarget && p.attackTimer >= rate) {
         p.attackTimer = 0;
         targetRows.forEach((row, idx) => {
@@ -260,19 +262,17 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     const slowBoost = z.slowTimer > 0 ? 1 : 0;
     const eff = z.speed * bloodBoost * frozenMult * warpMult;
 
-    // 找殭屍接觸到的植物（掃描當前格和前一格）
+    // 找殭屍前方最近的植物（掃描同行所有植物）
     let plant = null;
     let plantKey = null;
-    const col1 = Math.floor(z.x);
-    const col2 = Math.floor(z.x + 0.95);
-    for (const tryCol of [col1, col2]) {
-      if (tryCol < 0 || tryCol >= cols) continue;
-      const k = cellKey(z.row, tryCol);
-      const p = state.plants.get(k);
-      if (p && z.x < p.col + 0.95) {
-        plant = p;
-        plantKey = k;
-        break;
+    for (const [k, p] of state.plants) {
+      if (p.row !== z.row) continue;
+      // 殭屍前端到達植物右緣 → 開始咬
+      if (z.x <= p.col + 1) {
+        if (!plant || p.col > plant.col) {
+          plant = p;
+          plantKey = k;
+        }
       }
     }
     const mower = state.lawnmowers[z.row];
@@ -285,7 +285,7 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     if (mower.active) continue;
 
     // 咬植物
-    if (plant && z.x < plant.col + 0.95) {
+    if (plant) {
       z.biteTimer += dt;
       if (z.biteTimer >= 0.7) {
         z.biteTimer = 0;
@@ -293,6 +293,11 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
         if (state.shieldTimer <= 0) {
           plant.hp -= biteDmg;
           if (plant.hp <= 0) state.plants.delete(plantKey);
+        }
+        // 堡壘反傷
+        const reflect = plant.terrReflect || 0;
+        if (reflect > 0) {
+          z.hp -= Math.round(biteDmg * reflect);
         }
       }
     } else if (!z.frozen) {

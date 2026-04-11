@@ -34,6 +34,7 @@ export function updateShop(state) {
 
     if (cd > 0) {
       ov.style.transform = `scaleY(${Math.min(1, cd / p.cooldown)})`;
+      ov.style.transformOrigin = 'top';
       txt.textContent = `${cd.toFixed(1)}s`;
     } else {
       ov.style.transform = 'scaleY(0)';
