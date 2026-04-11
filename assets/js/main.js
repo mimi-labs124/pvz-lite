@@ -1,5 +1,5 @@
 import { ensureAudio, audioState } from './audio.js';
-import { sfxVolumeEl, sfxValueEl, restartBtn, playAgainBtn, levelSelect } from './dom.js';
+import { sfxVolumeEl, sfxValueEl, restartBtn, playAgainBtn } from './dom.js';
 import { startGame, bindGameEvents } from './game.js';
 
 function syncAudioUI() {
@@ -22,7 +22,6 @@ playAgainBtn.addEventListener('click', () => {
   startGame();
 });
 
-levelSelect.addEventListener('change', startGame);
 document.addEventListener('pointerdown', ensureAudio, { once: true });
 
 bindGameEvents();

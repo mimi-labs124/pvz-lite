@@ -1,31 +1,123 @@
-import { rows } from '../config.js';
+import { rows, XP_LEVELS } from '../config.js';
 
-export function createGameState(levelKey, level) {
+export function createRunState() {
   return {
-    levelKey,
-    sun: level.sunStart,
-    kills: 0,
+    // ── 跑局狀態 ──
+    runActive: true,
     wave: 1,
+    maxWaveReached: 1,
+    totalKills: 0,
+
+    // ── 經濟 ──
+    sun: 150,
+    kills: 0,
+
+    // ── 牌組系統 ──
+    deck: ['peashooter', 'sunflower', 'wallnut'],
     selectedPlant: 'peashooter',
+    unlockedSpells: [],
+
+    // ── 全局 Buff ──
+    globalBuffs: {
+      attackSpeed: 0,
+      hp: 0,
+      sunIncome: 0,
+      cost: 0,
+      killReward: 0,
+      regen: 0,
+      critChance: 0,
+      xpMulti: 0,
+    },
+
+    // ── 場上實體 ──
     plants: new Map(),
     zombies: [],
     peas: [],
     suns: [],
     booms: [],
+
+    // ── 割草機 ──
     lawnmowers: Array.from({ length: rows }, (_, row) => ({ row, x: -0.25, active: false, used: false })),
+
+    // ── 計時器 ──
     spawnTimer: 0,
     sunTimer: 0,
-    gameOver: false,
-    nextZombieId: 1,
-    nextSunId: 1,
     cooldowns: {},
+
+    // ── 波次狀態 ──
+    waveActive: false,
+    waveZombiesRemaining: 0,
+    waveKills: 0,
+    waveKillTarget: 0,
+    spawnQueue: [],
+
+    // ── Boss ──
+    isBossWave: false,
+    bossActive: false,
+
+    // ── Draft 階段 ──
+    draftPhase: false,
+    draftCards: [],
+
+    // ── 法術 ──
+    spellCooldowns: {},
+
+    // ── 混亂事件 ──
+    chaosEvent: null,
+    chaosTimer: 0,
+    chaosCooldown: 0,
+    nextChaosAt: 15 + Math.random() * 10,
+
+    // ── 修飾器 ──
     modifier: 'normal',
     modifierTimer: 0,
     modifierWave: 0,
+
+    // ── 遊戲結束 ──
+    gameOver: false,
+    gameWon: false,
+
+    // ── ID 計數 ──
+    nextZombieId: 1,
+    nextSunId: 1,
   };
 }
 
-export function initCooldowns(state, plantKeys) {
-  state.cooldowns = Object.fromEntries(plantKeys.map(k => [k, 0]));
+export function initCooldowns(state) {
+  state.cooldowns = {};
+  for (const k of state.deck) {
+    state.cooldowns[k] = 0;
+  }
   return state;
+}
+
+export function initSpellCooldowns(state, spells) {
+  state.spellCooldowns = {};
+  for (const s of state.unlockedSpells) {
+    state.spellCooldowns[s] = 0;
+  }
+  return state;
+}
+
+// 計算植物實際 XP 與等級
+export function getPlantLevel(xp) {
+  for (let i = XP_LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= XP_LEVELS[i]) return i + 1;
+  }
+  return 1;
+}
+
+// 給植物加 XP
+export function addPlantXP(state, plantKey, amount) {
+  const plant = state.plants.get(plantKey);
+  if (!plant) return false;
+  const xpMulti = 1 + (state.globalBuffs.xpMulti || 0);
+  const oldLevel = getPlantLevel(plant.xp || 0);
+  plant.xp = (plant.xp || 0) + Math.round(amount * xpMulti);
+  const newLevel = getPlantLevel(plant.xp);
+  if (newLevel > oldLevel) {
+    plant.level = newLevel;
+    return true; // 進化了!
+  }
+  return false;
 }

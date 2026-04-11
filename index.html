@@ -3,53 +3,68 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>植物大戰殭屍 Lite+</title>
-    <link rel="stylesheet" href="assets/css/styles.css" />
-
+  <title>🌪️ 植物大戰殭屍 Lite：Chaos Garden</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
 <div class="wrap">
+  <!-- 頂部欄 -->
   <div class="topbar">
     <div>
-      <div class="title">🌻 植物大戰殭屍 Lite+</div>
-      <div class="muted">有冷卻、關卡、更多殭屍，手機也比較順。</div>
+      <div class="title">🌪️ Chaos Garden</div>
+      <div class="muted">肉鴿塔防 — 每局都不同</div>
     </div>
     <div class="stats">
-      <div class="pill">☀️ <span id="sunCount">150</span></div>
-      <div class="pill">🧟 <span id="kills">0</span></div>
-      <div class="pill">🌊 <span id="wave">1</span></div>
-      <div class="pill">🚜 <span id="mowerCount">5</span></div>
-      <div class="pill">🌦️ <span id="levelHint">穩定發育</span></div>
+      <div class="pill sun-pill">☀️ <span id="sunCount">150</span></div>
+      <div class="pill kill-pill">💀 <span id="kills">0</span></div>
+      <div class="pill wave-pill">🌊 <span id="wave">1</span></div>
+      <div class="pill deck-pill">🃏 <span id="deckCount">3</span></div>
+      <div class="pill mower-pill">🚜 <span id="mowerCount">5</span></div>
+      <div id="runInfo" class="pill run-pill">跑局：第 1 波</div>
       <button id="pauseBtn">暫停</button>
-      <select id="levelSelect">
-        <option value="easy">關卡：簡單</option>
-        <option value="normal" selected>關卡：普通</option>
-        <option value="hard">關卡：困難</option>
-        <option value="survival">關卡：生存</option>
-      </select>
-      <button id="restartBtn">重新開始</button>
+      <button id="restartBtn">🔄 新跑局</button>
     </div>
   </div>
 
+  <!-- 主佈局 -->
   <div class="layout">
-    <aside class="panel">
-      <div style="font-weight:800;margin-bottom:8px">植物卡</div>
+    <!-- 左側面板 -->
+    <aside class="panel sidebar">
+      <div class="section-title">🃏 牌組</div>
       <div id="mobileShop" class="mobile-bar"></div>
       <div id="shop" class="shop"></div>
+
       <div class="section">
-        <div style="font-weight:800;margin-bottom:8px">音效</div>
+        <div class="section-title">✨ 法術</div>
+        <div id="spellBar" class="spell-bar"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🔊 音效</div>
         <div class="muted">音量：<span id="sfxValue">70%</span></div>
         <input id="sfxVolume" type="range" min="0" max="100" value="70" />
       </div>
-      <div class="section muted">
-        - 卡牌冷卻時會灰掉<br>
-        - 不同關卡會影響刷怪與陽光<br>
-        - Blood Moon 會讓殭屍變快，但擊殺回更多陽光<br>
-        - 賭徒花傷害很飄，分裂殭屍死後會裂成兩隻
+
+      <div class="section muted tips">
+        🌪️ <b>Chaos Garden</b> — 肉鴿塔防<br>
+        ─ 每波結束<b>抽牌</b>：選一張強化牌組<br>
+        ─ 植物殺敵獲得 <b>XP</b>，升級後<b>進化</b><br>
+        ─ 解鎖<b>法術</b>，即時施放扭轉戰局<br>
+        ─ <b>混亂事件</b>隨機觸發，改變戰場<br>
+        ─ 每 5 波出現 <b>Boss</b>！<br>
+        ─ 死亡即重來，每次跑局都不同
       </div>
     </aside>
 
+    <!-- 遊戲區 -->
     <section class="panel board-wrap">
+      <!-- Boss 血條 -->
+      <div id="bossHpBar" class="boss-hp-bar">
+        <div class="boss-hp-fill"></div>
+        <div id="bossHpText" class="boss-hp-text"></div>
+      </div>
+
+      <!-- 戰鬥狀態 -->
       <div id="battleStatus" class="battle-status">
         <div>
           <strong id="statusTitle">準備中</strong>
@@ -57,19 +72,33 @@
         </div>
         <div id="modifierTag" class="modifier-tag">普通日</div>
       </div>
+
+      <!-- 混亂警報 -->
+      <div id="chaosAlert" class="chaos-alert"></div>
+
+      <!-- 遊戲棋盤 -->
       <div id="board" class="board"></div>
+
+      <!-- 遊戲結束覆蓋 -->
       <div id="overlay" class="overlay">
         <div class="dialog">
           <h2 id="endTitle">遊戲結束</h2>
           <p id="endText" class="muted"></p>
-          <button id="playAgainBtn">再玩一次</button>
+          <button id="playAgainBtn">🔄 再來一局</button>
+        </div>
+      </div>
+
+      <!-- Draft 覆蓋 -->
+      <div id="draftOverlay" class="overlay draft-overlay">
+        <div class="draft-dialog">
+          <h2 id="draftWave" class="draft-title">第 1 波完成！選擇一張牌：</h2>
+          <div id="draftCards" class="draft-cards"></div>
         </div>
       </div>
     </section>
   </div>
 </div>
 
-  <script type="module" src="assets/js/main.js"></script>
-
+<script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

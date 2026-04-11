@@ -1,5 +1,9 @@
+import { isChaosActive } from './chaos.js';
+
 export function addSun(state, x, y, val = 25, fall = 0.6) {
-  state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: val, life: 10, fall });
+  const incomeBuff = 1 + (state.globalBuffs.sunIncome || 0);
+  const sunValue = Math.round(val * incomeBuff);
+  state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: sunValue, life: 10, fall });
 }
 
 export function collectSun(state, id) {
@@ -8,4 +12,28 @@ export function collectSun(state, id) {
   state.sun += state.suns[i].value;
   state.suns.splice(i, 1);
   return true;
+}
+
+// 天空掉落陽光
+export function updateSkyDrops(state, dt, cols) {
+  // 日蝕期間不落陽光
+  if (isChaosActive(state, 'eclipse')) return;
+
+  const dropInterval = state.modifier === 'solar' ? 3.5 : state.modifier === 'fog' ? 7.5 : 5.2;
+  state.sunTimer += dt;
+
+  // 陽光暴雨
+  if (isChaosActive(state, 'sunshower')) {
+    state.sunShowerTimer = (state.sunShowerTimer || 0) + dt;
+    if (state.sunShowerTimer >= 0.3) {
+      state.sunShowerTimer = 0;
+      addSun(state, Math.random() * (cols * 90 - 50) + 20, Math.random() * 40, 15, 0.8);
+    }
+  }
+
+  if (state.sunTimer >= dropInterval) {
+    state.sunTimer = 0;
+    const speed = state.modifier === 'solar' ? 0.35 : state.modifier === 'fog' ? 0.85 : 0.6;
+    addSun(state, Math.random() * (cols * 90 - 50) + 20, 10, 25, speed);
+  }
 }
