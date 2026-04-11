@@ -2,7 +2,8 @@ import { isChaosActive } from './chaos.js';
 
 export function addSun(state, x, y, val = 25, fall = 0.6) {
   const incomeBuff = 1 + (state.globalBuffs.sunIncome || 0);
-  const sunValue = Math.round(val * incomeBuff);
+  const tsunamiMult = (state.chaosHarnessed && state.harnessEffect?.type === 'tsunami') ? (state.harnessEffect.multiplier || 1) : 1;
+  const sunValue = Math.round(val * incomeBuff * tsunamiMult);
   state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: sunValue, life: 10, fall });
 }
 

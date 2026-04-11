@@ -25,7 +25,7 @@ export function renderEntities(boardEl, state) {
     el.innerHTML = `
       ${PLANTS[p.type]?.emoji || '?'}
       <div class="evo-indicator" style="color:${LEVEL_COLORS[level]}">${LEVEL_STARS[level]}</div>
-      <div class="hp"><i style="width:${Math.max(0, p.hp / p.maxHp * 100)}%"></i></div>
+      <div class="hp"><i style="width:${p.maxHp ? Math.max(0, p.hp / p.maxHp * 100) : 0}%"></i></div>
     `;
     el.title = `${evoName} Lv.${level} | HP: ${Math.round(p.hp)}/${p.maxHp} | XP: ${p.xp || 0}`;
     cell.appendChild(el);
@@ -42,13 +42,13 @@ export function renderEntities(boardEl, state) {
     el.className = className;
 
     el.style.left = `${z.x * 95 + 4}px`;
-    el.style.top = `${z.row * 100 + (z.kind === 'giant' || z.kind === 'boss' ? 2 : 10)}px`;
+    el.style.top = `${z.row * 94 + (z.kind === 'giant' || z.kind === 'boss' ? 2 : 10)}px`;
 
     let icon = ZOMBIES[z.kind]?.emoji || '🧟';
     if (z.kind === 'boss') icon = z.bossEmoji || '👾';
     if (z.shield) icon += '🛡️';
 
-    el.innerHTML = `${icon}<div class="hp"><i style="width:${Math.max(0, z.hp / z.maxHp * 100)}%"></i></div>`;
+    el.innerHTML = `${icon}<div class="hp"><i style="width:${z.maxHp ? Math.max(0, z.hp / z.maxHp * 100) : 0}%"></i></div>`;
 
     if (z.slowTimer > 0 && !z.frozen) el.style.outline = '2px solid rgba(56,189,248,.55)';
     if (z.frozen) el.style.outline = '2px solid rgba(125,211,252,.85)';
@@ -75,7 +75,7 @@ export function renderEntities(boardEl, state) {
     if (p.gambler) cls += ' gambler';
     el.className = cls;
     el.style.left = `${p.x * 95 + 20}px`;
-    el.style.top = `${p.row * 100 + 10}px`;
+    el.style.top = `${p.row * 94 + 10}px`;
     if (p.fire) {
       el.style.background = 'radial-gradient(circle at 35% 35%,#fef3c7,#f97316)';
       el.style.boxShadow = '0 0 12px rgba(249,115,22,.6)';
@@ -101,7 +101,7 @@ export function renderEntities(boardEl, state) {
     el.className = 'mower';
     el.textContent = '🚜';
     el.style.left = `${m.x * 95 + 2}px`;
-    el.style.top = `${m.row * 100 + 28}px`;
+    el.style.top = `${m.row * 94 + 28}px`;
     boardEl.appendChild(el);
   }
 
@@ -110,7 +110,7 @@ export function renderEntities(boardEl, state) {
     const el = document.createElement('div');
     el.className = 'boom';
     el.style.left = `${b.col * 95 - 34}px`;
-    el.style.top = `${b.row * 100 - 6}px`;
+    el.style.top = `${b.row * 94 - 6}px`;
     el.style.width = '220px';
     el.style.height = '220px';
     boardEl.appendChild(el);

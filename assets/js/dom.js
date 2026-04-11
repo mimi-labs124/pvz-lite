@@ -29,3 +29,10 @@ export const deckCountEl = document.getElementById('deckCount');
 export const bossHpBarEl = document.getElementById('bossHpBar');
 export const bossHpTextEl = document.getElementById('bossHpText');
 export const runInfoEl = document.getElementById('runInfo');
+
+// ── Chaos Awakening 新增 ──
+export const relicOverlayEl = document.getElementById('relicOverlay');
+export const relicCardsEl = document.getElementById('relicCards');
+export const relicTitleEl = document.getElementById('relicTitle');
+export const frontlineInfoEl = document.getElementById('frontlineInfo');
+export const conquestBtnEl = document.getElementById('conquestBtn');

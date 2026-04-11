@@ -104,7 +104,7 @@ export function initTerritory(state) {
     frontline: TERRITORY.startPlayableCols,
     conquered: new Set(),
     maxCol: 8,
-    terrain: generateTerrain(rows, 5, TERRITORY.startPlayableCols),
+    terrain: generateTerrain(rows, 9, TERRITORY.startPlayableCols),
   };
 }
 

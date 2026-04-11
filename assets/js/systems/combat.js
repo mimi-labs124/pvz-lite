@@ -213,7 +213,6 @@ export function updatePeasCombat(state, dt, sfx) {
 
       // 冰緩效果
       if (pea.ice) {
-        const evo = getEvolutionBonus('icepea', 3); // 用基礎冰緩
         const slowDur = 2.8;
         hit.slowTimer = Math.max(hit.slowTimer || 0, slowDur);
         // 凍結機率 (Lv3)
@@ -258,9 +257,8 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     const bloodBoost = state.modifier === 'bloodmoon' ? 1.18 : 1;
     const frozenMult = z.frozen ? 0.05 : z.slowTimer > 0 ? 0.5 : 1;
     const warpMult = z.warpSlow ? 0.5 : 1;
-    const evo = getEvolutionBonus('icepea', 3); // slow boost from ice pea evo
-    const slowBoost = z.slowTimer > 0 ? 1 : 0;
-    const eff = z.speed * bloodBoost * frozenMult * warpMult;
+    const relicSpeedBoost = 1 + (state.relicBuffs?.zombieSpeedBoost || 0);
+    const eff = z.speed * bloodBoost * frozenMult * warpMult * relicSpeedBoost;
 
     // 找殭屍前方最近的植物（掃描同行所有植物）
     let plant = null;
@@ -289,7 +287,7 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
       z.biteTimer += dt;
       if (z.biteTimer >= 0.7) {
         z.biteTimer = 0;
-        const biteDmg = ZOMBIES[z.kind]?.bite || 18;
+        const biteDmg = z.biteDmg || ZOMBIES[z.kind]?.bite || 18;
         if (state.shieldTimer <= 0) {
           plant.hp -= biteDmg;
           if (plant.hp <= 0) state.plants.delete(plantKey);

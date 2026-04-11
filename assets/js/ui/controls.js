@@ -1,4 +1,4 @@
-export function bindPauseControl(pauseBtn, statusTitleEl, statusTextEl, isPaused, setPaused) {
+export function bindPauseControl(pauseBtn, _statusTitleEl, _statusTextEl, isPaused, setPaused) {
   pauseBtn.addEventListener('click', () => {
     const p = !isPaused();
     setPaused(p);

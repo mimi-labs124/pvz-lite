@@ -56,7 +56,7 @@ export const RELICS = {
   },
   echo_crystal: {
     id: 'echo_crystal', name: '迴響水晶', emoji: '💎',
-    desc: '每局保留一張上次跑局最後抽到的牌',
+    desc: '每局保留一張上次跑局最後抽到的牌', // TODO: 需接上 draft 系統
     rarity: 'rare',
     effect: (state) => { state.relicBuffs.keepOneCard = true; },
   },

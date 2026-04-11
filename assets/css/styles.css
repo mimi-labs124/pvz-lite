@@ -104,7 +104,7 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 .spell-cd { font-size: 10px; color: var(--warn); }
 
 /* ── Board ────────────────────────────────── */
-.board-wrap { position: relative; overflow: hidden; }
+.board-wrap { position: relative; overflow: visible; }
 .board {
   position: relative; display: grid; grid-template-rows: repeat(5, 88px); gap: 6px;
   background: linear-gradient(180deg, #14532d, #166534);
@@ -144,6 +144,11 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 .cell.conquered::before {
   content: '🗡️'; position: absolute; bottom: 2px; right: 3px;
   font-size: 8px; opacity: .5; pointer-events: none;
+}
+.terrain-marker {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 18px; opacity: .35; pointer-events: none;
 }
 @keyframes frontline-pulse {
   0%, 100% { box-shadow: inset 0 0 8px rgba(34, 211, 238, .15); }
@@ -267,13 +272,13 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 
 /* ── Boss HP Bar — fixed 不佔位 ── */
 .boss-hp-bar {
-  display: none; height: 28px; border-radius: 14px;
+  visibility: hidden; opacity: 0; height: 28px; border-radius: 14px;
   background: rgba(15, 23, 42, .8); border: 1px solid rgba(220, 38, 38, .35);
   overflow: hidden; margin-bottom: 0; position: absolute;
   top: 0; left: 0; right: 0; z-index: 70;
-  transition: opacity .3s;
+  transition: opacity .3s, visibility .3s;
 }
-.boss-hp-bar.show { display: block; }
+.boss-hp-bar.show { visibility: visible; opacity: 1; }
 .boss-hp-fill {
   height: 100%; width: 100%; background: linear-gradient(90deg, #dc2626, #f97316);
   border-radius: 14px; transition: width .3s;
@@ -436,6 +441,10 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 
 input[type=range] { width: 100%; accent-color: var(--accent); }
 .mobile-bar { display: none; }
+.xp-bar {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  font-size: 11px; color: var(--muted);
+}
 
 /* ── Responsive ───────────────────────────── */
 @media (max-width: 920px) {

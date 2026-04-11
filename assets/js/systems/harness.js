@@ -86,7 +86,7 @@ export const HARNESSES = {
         state.chaosHarnessed = true;
         state.harnessEffect = { type: 'fire_rain' };
         for (const z of state.zombies) {
-          z.burning = 3;
+          z.burning = true; z.burnTimer = 3;
         }
       },
     },

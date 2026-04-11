@@ -139,9 +139,12 @@ function applyInvertedChaosEffect(state, event) {
       }
       break;
     }
-    case 'eclipse':
+    case 'eclipse': {
       // 日蝕反蝕反轉：雙倍陽光掉落 8 秒
+      state.globalBuffs.sunIncome = (state.globalBuffs.sunIncome || 0) + 1.0;
+      state._eclipseInvertTimer = 8;
       break;
+    }
     case 'gravity': {
       // 重力反轉：殭屍被推後 1 格
       for (const z of state.zombies) {
@@ -149,19 +152,29 @@ function applyInvertedChaosEffect(state, event) {
       }
       break;
     }
-    case 'fertile':
-      // 肥沃之雨反轉：已經是正面的，再加 10%
+    case 'fertile': {
+      // 肥沃之雨反轉：已經是正面的，攻速再加 10%
+      state.globalBuffs.attackSpeed = (state.globalBuffs.attackSpeed || 0) + 0.10;
       break;
-    case 'undead':
+    }
+    case 'undead': {
       // 亡者歸來反轉：殭屍不復活，改為每隻死亡殭屍 +10 陽光
+      state.chaosHarnessed = true;
+      state.harnessEffect = { type: 'soul_harvest', sunPerUndead: 10 };
       break;
-    case 'sunshower':
-      // 陽光暴雨反轉：已經是正面的
+    }
+    case 'sunshower': {
+      // 陽光暴雨反轉：已經是正面的，掉落量 +50%
+      state.globalBuffs.sunIncome = (state.globalBuffs.sunIncome || 0) + 0.50;
+      state._sunshowerInvertTimer = 8;
       break;
+    }
     case 'earthquake': {
-      // 大地震反轉：植物被排列整齊
+      // 大地震反轉：植物被排列整齊 + 全體 +10% HP
       for (const [key, plant] of state.plants) {
-        // 不做任何壞事
+        const bonus = Math.round(plant.maxHp * 0.10);
+        plant.hp += bonus;
+        plant.maxHp += bonus;
       }
       break;
     }
@@ -174,8 +187,16 @@ export function isChaosActive(state, eventId) {
 }
 
 // 殭屍死亡時有機率復活 (亡者歸來)
+// 靈魂收割馴服：不復活，改給陽光
 export function chaosUndeadCheck(state, zombie) {
-  if (isChaosActive(state, 'undead') && Math.random() < 0.2) {
+  if (!isChaosActive(state, 'undead')) return false;
+  // 靈魂收割：每隻殭屍死亡給陽光
+  if (state.chaosHarnessed && state.harnessEffect?.type === 'soul_harvest') {
+    const bonus = state.harnessEffect.sunPerUndead || 25;
+    state.sun += bonus;
+    return false; // 不復活，改給陽光
+  }
+  if (Math.random() < 0.2) {
     return true; // 復活!
   }
   return false;

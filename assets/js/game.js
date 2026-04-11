@@ -1,18 +1,19 @@
 // ═══════════════════════════════════════════════
 // PVZ Lite: Chaos Awakening — 主遊戲協調器
 // ═══════════════════════════════════════════════
-import { rows, cols, PLANTS, ZOMBIES, SPELLS } from './config.js';
+import { rows, cols, PLANTS, SPELLS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
 import {
   boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl,
   overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
   pauseBtn, draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl,
   deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
+  relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
 } from './dom.js';
 import { updateBattleStatus } from './systems/status.js';
 import { startWaveSpawns, updateSpawning } from './systems/spawn.js';
 import { updateShop, actualPlantCost } from './systems/shop.js';
-import { createRunState, initCooldowns, initSpellCooldowns, getPlantLevel, addPlantXP } from './core/state.js';
+import { createRunState, initCooldowns, getPlantLevel } from './core/state.js';
 import { cellKey, flash } from './core/helpers.js';
 import { addSun, collectSun, updateSkyDrops } from './systems/economy.js';
 import { makeBoard } from './render/board.js';
@@ -23,8 +24,8 @@ import { updatePlantsCombat, updatePeasCombat, updateZombieCombat } from './syst
 import { bindPauseControl } from './ui/controls.js';
 import { generateDraftCards, applyDraftCard } from './systems/draft.js';
 import { getEvolutionBonus, applyEvolutionToPlant } from './systems/evolution.js';
-import { canCastSpell, castSpell, updateSpellCooldowns, updateSpellEffects } from './systems/spells.js';
-import { checkChaosTrigger, isChaosActive } from './systems/chaos.js';
+import { castSpell, updateSpellCooldowns, updateSpellEffects } from './systems/spells.js';
+import { checkChaosTrigger } from './systems/chaos.js';
 
 // Chaos Awakening 系統
 import {
@@ -73,7 +74,7 @@ export function startGame() {
   overlayEl.classList.remove('show');
   draftOverlayEl.classList.remove('show');
 
-  const relicOv = document.getElementById('relicOverlay');
+  const relicOv = relicOverlayEl;
   if (relicOv) relicOv.classList.remove('show');
 
   updateShop(state);
@@ -437,15 +438,13 @@ function updateBossHpBar() {
 // ═══════════════════════════════════════════════
 
 function updateTerritoryUI() {
-  const frontlineEl = document.getElementById('frontlineInfo');
-  if (frontlineEl) {
-    frontlineEl.textContent = `前線：第 ${state.territory.frontline} 列 | 佔領：${state.territory.conquered.size} 格`;
+  if (frontlineInfoEl) {
+    frontlineInfoEl.textContent = `前線：第 ${state.territory.frontline} 列 | 佔領：${state.territory.conquered.size} 格`;
   }
 
-  const conquestBtn = document.getElementById('conquestBtn');
-  if (conquestBtn) {
-    conquestBtn.textContent = state.conquestMode ? '⚔️ 佔領中...' : '🗡️ 佔領';
-    conquestBtn.classList.toggle('active', state.conquestMode);
+  if (conquestBtnEl) {
+    conquestBtnEl.textContent = state.conquestMode ? '⚔️ 佔領中...' : '🗡️ 佔領';
+    conquestBtnEl.classList.toggle('active', state.conquestMode);
   }
 
   territoryDirty = true;
@@ -499,14 +498,14 @@ function showRelicSelection() {
     return;
   }
 
-  const relicOv = document.getElementById('relicOverlay');
-  const relicCardsEl = document.getElementById('relicCards');
-  const relicTitleEl = document.getElementById('relicTitle');
-  if (!relicOv || !relicCardsEl) return;
+  const relicOv = relicOverlayEl;
+  const relicCards = relicCardsEl;
+  const relicTitle = relicTitleEl;
+  if (!relicOv || !relicCards) return;
 
-  relicTitleEl.textContent = `🏆 你撐到了第 ${state.wave} 波！選擇一個遺物：`;
+  relicTitle.textContent = `🏆 你撐到了第 ${state.wave} 波！選擇一個遺物：`;
 
-  relicCardsEl.innerHTML = state.relicChoices.map((relic, i) => {
+  relicCards.innerHTML = state.relicChoices.map((relic, i) => {
     const color = getRarityColor(relic.rarity);
     const rarityLabel = { common: '普通', rare: '稀有', legendary: '傳說' }[relic.rarity] || '普通';
     return `
@@ -520,7 +519,7 @@ function showRelicSelection() {
 
   relicOv.classList.add('show');
 
-  relicCardsEl.querySelectorAll('.relic-card').forEach(el => {
+  relicCards.querySelectorAll('.relic-card').forEach(el => {
     el.addEventListener('click', () => {
       chooseRelic(state.relicChoices[parseInt(el.dataset.index)].id);
       sfx('evolve');
@@ -697,9 +696,8 @@ export function bindGameEvents() {
     }
   });
 
-  const conquestBtn = document.getElementById('conquestBtn');
-  if (conquestBtn) {
-    conquestBtn.addEventListener('click', () => {
+  if (conquestBtnEl) {
+    conquestBtnEl.addEventListener('click', () => {
       state.conquestMode = !state.conquestMode;
       if (state.conquestMode) {
         state.selectedPlant = null;
