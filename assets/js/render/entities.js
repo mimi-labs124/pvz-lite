@@ -1,5 +1,6 @@
 import { PLANTS, ZOMBIES } from '../config.js';
-import { getPlantLevel, getEvolutionBonus } from '../core/state.js';
+import { getPlantLevel } from '../core/state.js';
+import { getEvolutionBonus } from '../systems/evolution.js';
 import { getCellEl } from './board.js';
 
 const LEVEL_COLORS = ['', '#4ade80', '#facc15', '#f87171'];
