@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   PVZ Lite: Chaos Garden — 暗黑肉鴿主題
+   PVZ Lite: Chaos Awakening — 暗黑肉鴿主題
    ═══════════════════════════════════════════════ */
 
 :root {
@@ -12,6 +12,7 @@
   --accent: #8b5cf6; --accent2: #a78bfa;
   --chaos: #f97316; --boss: #dc2626;
   --glow: rgba(139, 92, 246, .25);
+  --territory: #22d3ee; --relic: #f59e0b; --harness: #34d399;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -33,7 +34,7 @@ body {
 }
 .title {
   font-size: clamp(20px, 4vw, 28px); font-weight: 800;
-  background: linear-gradient(90deg, var(--accent), var(--chaos));
+  background: linear-gradient(90deg, var(--accent), var(--chaos), var(--territory));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
 }
@@ -114,9 +115,61 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
   position: relative; border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, .12);
   background: rgba(255, 255, 255, .06); overflow: hidden;
+  transition: all .2s;
 }
 .cell:active { transform: scale(.99); }
 .coord { position: absolute; top: 2px; left: 4px; font-size: 9px; color: rgba(255, 255, 255, .25); }
+
+/* ── Territory Visuals (Chaos Awakening) ── */
+.cell.unplayable {
+  background: rgba(30, 20, 20, .45);
+  border-color: rgba(220, 38, 38, .15);
+}
+.cell.unplayable::after {
+  content: '🔒'; position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 14px; opacity: .35;
+  pointer-events: none;
+}
+.cell.frontline {
+  border-color: rgba(34, 211, 238, .5);
+  box-shadow: inset 0 0 8px rgba(34, 211, 238, .15);
+  animation: frontline-pulse 2s ease-in-out infinite;
+}
+.cell.conquered {
+  background: rgba(34, 211, 238, .1);
+  border-color: rgba(34, 211, 238, .3);
+}
+.cell.conquered::before {
+  content: '🗡️'; position: absolute; bottom: 2px; right: 3px;
+  font-size: 8px; opacity: .5; pointer-events: none;
+}
+@keyframes frontline-pulse {
+  0%, 100% { box-shadow: inset 0 0 8px rgba(34, 211, 238, .15); }
+  50% { box-shadow: inset 0 0 14px rgba(34, 211, 238, .3); }
+}
+
+/* ── Conquest Button ── */
+.conquest-btn {
+  width: 100%; padding: 8px 12px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, .2), rgba(6, 182, 212, .15));
+  border: 1px solid rgba(34, 211, 238, .35);
+  border-radius: 12px; color: var(--territory);
+  font-weight: 800; font-size: 13px; cursor: pointer;
+  transition: all .15s;
+}
+.conquest-btn:hover {
+  background: linear-gradient(90deg, rgba(34, 211, 238, .35), rgba(6, 182, 212, .25));
+}
+.conquest-btn.active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, .4), rgba(6, 182, 212, .3));
+  box-shadow: 0 0 12px rgba(34, 211, 238, .3);
+  animation: conquest-glow 1s ease-in-out infinite;
+}
+@keyframes conquest-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(34, 211, 238, .3); }
+  50% { box-shadow: 0 0 20px rgba(34, 211, 238, .5); }
+}
 
 /* ── Entities ─────────────────────────────── */
 .plant, .zombie, .pea, .sun, .mower, .boom {
@@ -143,6 +196,9 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 /* Evolution glow */
 .plant.evo-2 { box-shadow: 0 0 8px rgba(250, 204, 21, .35); }
 .plant.evo-3 { box-shadow: 0 0 14px rgba(248, 113, 113, .45); }
+
+/* Chaos Awakening: Shield effect */
+.plant.shielded { outline: 2px solid rgba(34, 211, 238, .7) !important; box-shadow: 0 0 12px rgba(34, 211, 238, .5) !important; }
 
 .evo-indicator {
   position: absolute; top: 2px; right: 4px;
@@ -311,6 +367,59 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 .draft-desc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .draft-cost, .draft-cd { font-size: 11px; color: var(--warn); }
 
+/* ═══════════════════════════════════════════════
+   Chaos Awakening: Relic Overlay
+   ═══════════════════════════════════════════════ */
+.relic-overlay { z-index: 120; }
+.relic-dialog {
+  background: rgba(15, 23, 42, .97); border: 2px solid var(--relic);
+  border-radius: 22px; padding: 24px; text-align: center;
+  width: min(95vw, 750px);
+  box-shadow: 0 0 50px rgba(245, 158, 11, .25);
+}
+.relic-title { color: var(--relic); font-size: 22px; margin-bottom: 18px; }
+.relic-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+.relic-card {
+  padding: 20px 14px; border: 2px solid var(--line); border-radius: 16px;
+  background: rgba(31, 41, 55, .85); cursor: pointer;
+  transition: all .2s; text-align: center; position: relative;
+}
+.relic-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, .25);
+}
+.relic-rarity {
+  display: inline-block; padding: 3px 8px; border-radius: 999px;
+  background: rgba(245, 158, 11, .15); border: 1px solid rgba(245, 158, 11, .3);
+  font-size: 10px; font-weight: 700; margin-bottom: 8px;
+}
+.relic-emoji { font-size: 46px; margin: 10px 0; }
+.relic-name { font-weight: 800; font-size: 16px; margin-bottom: 6px; }
+.relic-desc { font-size: 12px; color: var(--muted); }
+
+/* ── Relic List (sidebar) ── */
+.relic-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.relic-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 999px;
+  background: rgba(245, 158, 11, .12); border: 1px solid rgba(245, 158, 11, .3);
+  font-size: 11px; font-weight: 700; color: #fde68a;
+}
+.relic-badge.rare {
+  background: rgba(139, 92, 246, .12); border-color: rgba(139, 92, 246, .3); color: var(--accent2);
+}
+.relic-badge.legendary {
+  background: rgba(245, 158, 11, .18); border-color: rgba(245, 158, 11, .45); color: #f59e0b;
+  animation: legendary-glow 2s ease-in-out infinite;
+}
+@keyframes legendary-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, .2); }
+  50% { box-shadow: 0 0 10px rgba(245, 158, 11, .4); }
+}
+
 /* ── Pill variants ────────────────────────── */
 .pill.live   { border-color: rgba(34, 197, 94, .35); }
 .pill.warning { border-color: rgba(251, 191, 36, .45); }
@@ -336,6 +445,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   .card { min-width: 155px; }
   button, select, .pill { padding: 8px; }
   #pauseBtn { min-width: 64px; }
-  .draft-cards { grid-template-columns: 1fr; }
-  .draft-card { padding: 14px; }
+  .draft-cards, .relic-cards { grid-template-columns: 1fr; }
+  .draft-card, .relic-card { padding: 14px; }
 }

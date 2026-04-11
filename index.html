@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>🌪️ 植物大戰殭屍 Lite：Chaos Garden</title>
+  <title>🌪️ 植物大戰殭屍 Lite：Chaos Awakening</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
@@ -11,8 +11,8 @@
   <!-- 頂部欄 -->
   <div class="topbar">
     <div>
-      <div class="title">🌪️ Chaos Garden</div>
-      <div class="muted">肉鴿塔防 — 每局都不同</div>
+      <div class="title">🌪️ Chaos Awakening</div>
+      <div class="muted">遺物 × 馴服 × 領土 — 每局更強，每局不同</div>
     </div>
     <div class="stats">
       <div class="pill sun-pill">☀️ <span id="sunCount">150</span></div>
@@ -20,7 +20,7 @@
       <div class="pill wave-pill">🌊 <span id="wave">1</span></div>
       <div class="pill deck-pill">🃏 <span id="deckCount">3</span></div>
       <div class="pill mower-pill">🚜 <span id="mowerCount">5</span></div>
-      <div id="runInfo" class="pill run-pill">跑局：第 1 波</div>
+      <div id="runInfo" class="pill run-pill">跑局：第 1 波 | 🏛️ 0 遺物</div>
       <button id="pauseBtn">暫停</button>
       <button id="restartBtn">🔄 新跑局</button>
     </div>
@@ -39,6 +39,22 @@
         <div id="spellBar" class="spell-bar"></div>
       </div>
 
+      <!-- ── Chaos Awakening: 領土控制 ── -->
+      <div class="section">
+        <div class="section-title">🗡️ 領土</div>
+        <div id="frontlineInfo" class="muted" style="margin-bottom:6px;">前線：第 5 列 | 佔領：0 格</div>
+        <button id="conquestBtn" class="conquest-btn">🗡️ 佔領</button>
+        <div class="muted" style="margin-top:4px;">點擊前線下一列的格子來佔領</div>
+      </div>
+
+      <!-- ── Chaos Awakening: 遺物顯示 ── -->
+      <div class="section">
+        <div class="section-title">🏛️ 遺物</div>
+        <div id="relicList" class="relic-list">
+          <div class="muted">尚無遺物 — 死亡後可獲得</div>
+        </div>
+      </div>
+
       <div class="section">
         <div class="section-title">🔊 音效</div>
         <div class="muted">音量：<span id="sfxValue">70%</span></div>
@@ -46,13 +62,14 @@
       </div>
 
       <div class="section muted tips">
-        🌪️ <b>Chaos Garden</b> — 肉鴿塔防<br>
+        🌪️ <b>Chaos Awakening</b> — 遺物 × 馴服 × 領土<br>
         ─ 每波結束<b>抽牌</b>：選一張強化牌組<br>
         ─ 植物殺敵獲得 <b>XP</b>，升級後<b>進化</b><br>
         ─ 解鎖<b>法術</b>，即時施放扭轉戰局<br>
-        ─ <b>混亂事件</b>隨機觸發，改變戰場<br>
-        ─ 每 5 波出現 <b>Boss</b>！<br>
-        ─ 死亡即重來，每次跑局都不同
+        ─ <b>混亂事件</b>隨機觸發，進化植物可<b>馴服</b>轉化！<br>
+        ─ 花<b>陽光佔領</b>前線，擴展領土<br>
+        ─ 死亡後獲得<b>遺物</b>，下一局更強！<br>
+        ─ 每 5 波出現 <b>Boss</b>！
       </div>
     </aside>
 
@@ -93,6 +110,14 @@
         <div class="draft-dialog">
           <h2 id="draftWave" class="draft-title">第 1 波完成！選擇一張牌：</h2>
           <div id="draftCards" class="draft-cards"></div>
+        </div>
+      </div>
+
+      <!-- ── Chaos Awakening: 遺物選擇覆蓋 ── -->
+      <div id="relicOverlay" class="overlay relic-overlay">
+        <div class="relic-dialog">
+          <h2 id="relicTitle" class="relic-title">🏆 選擇遺物</h2>
+          <div id="relicCards" class="relic-cards"></div>
         </div>
       </div>
     </section>

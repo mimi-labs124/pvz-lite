@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════
 // PVZ Lite: Chaos Garden — 主遊戲協調器
 // ═══════════════════════════════════════════════
+// Chaos Awakening: 遺物 + 混沌馴服 + 領土推進
 import { rows, cols, PLANTS, ZOMBIES, SPELLS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
 import {
@@ -13,7 +14,7 @@ import { updateBattleStatus } from './systems/status.js';
 import { startWaveSpawns, updateSpawning } from './systems/spawn.js';
 import { updateShop, actualPlantCost } from './systems/shop.js';
 import { createRunState, initCooldowns, initSpellCooldowns, getPlantLevel, addPlantXP } from './core/state.js';
-import { cellKey, flash } from './core/helpers.js';
+import { cellKey, flash, randomPick } from './core/helpers.js';
 import { addSun, collectSun, updateSkyDrops } from './systems/economy.js';
 import { makeBoard } from './render/board.js';
 import { renderEntities } from './render/entities.js';
@@ -25,6 +26,20 @@ import { generateDraftCards, applyDraftCard } from './systems/draft.js';
 import { getEvolutionBonus, applyEvolutionToPlant } from './systems/evolution.js';
 import { canCastSpell, castSpell, updateSpellCooldowns, updateSpellEffects } from './systems/spells.js';
 import { checkChaosTrigger, isChaosActive } from './systems/chaos.js';
+
+// ── Chaos Awakening 系統 ──
+import {
+  loadRelics, generateRelicChoices, chooseRelic,
+  applyRelicBuffs, checkPhoenixRevive, recordRun,
+  RELICS, getRarityColor,
+} from './systems/relics.js';
+import { tryHarnessChaos } from './systems/harness.js';
+import {
+  initTerritory, tryConquest, territoryWaveReward,
+  isCellPlayable, isConqueredCell, territoryDefenseMultiplier,
+  autoConquestCheck, conquestCost, conquestReward,
+  TERRITORY,
+} from './systems/territory.js';
 
 let state;
 let loopId;
@@ -39,6 +54,16 @@ export function startGame() {
   cancelAnimationFrame(loopId);
   state = createRunState();
   initCooldowns(state);
+
+  // ── Chaos Awakening: 應用遺物效果 ──
+  applyRelicBuffs(state);
+
+  // 遺物加成：起始陽光
+  state.sun += (state.relicBuffs.startSunBonus || 0);
+
+  // ── Chaos Awakening: 初始化領土 ──
+  initTerritory(state);
+
   isPaused = false;
   pauseBtn.textContent = '暫停';
   lastTime = 0;
@@ -50,8 +75,14 @@ export function startGame() {
   selectPlant('peashooter');
   overlayEl.classList.remove('show');
   draftOverlayEl.classList.remove('show');
+
+  // 隱藏遺物選擇 overlay
+  const relicOv = document.getElementById('relicOverlay');
+  if (relicOv) relicOv.classList.remove('show');
+
   updateShop(state);
   updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, 'normal');
+  updateTerritoryUI();
   render();
 
   // 開始第一波
@@ -68,6 +99,24 @@ function startNextWave() {
   state.waveActive = true;
   state.spawnTimer = 0;
 
+  // ── Chaos Awakening: 波次開始陽光獎勵（血之契約） ──
+  if (state.relicBuffs.waveSunBonus) {
+    state.sun += state.relicBuffs.waveSunBonus;
+  }
+
+  // ── Chaos Awakening: 世界樹種子 — 自動進化 ──
+  if (state.relicBuffs.autoEvolveInterval && state.wave > 1) {
+    if (state.wave % state.relicBuffs.autoEvolveInterval === 0) {
+      for (const [key, plant] of state.plants) {
+        if ((plant.level || 1) < 3) {
+          plant.level = (plant.level || 1) + 1;
+          applyEvolutionToPlant(plant);
+          showChaosAlert(`🌳 世界樹之力：${PLANTS[plant.type]?.name} 自動進化到 Lv.${plant.level}！`);
+        }
+      }
+    }
+  }
+
   if (state.isBossWave) {
     sfx('boss');
   }
@@ -83,6 +132,22 @@ function checkWaveComplete() {
   if (state.spawnQueue.length === 0 && state.zombies.length === 0) {
     state.waveActive = false;
     state.bossActive = false;
+
+    // ── Chaos Awakening: 領土獎勵 ──
+    const terrReward = territoryWaveReward(state);
+    if (terrReward > 0) {
+      showChaosAlert(`🗡️ 領土收益 +${terrReward} ☀️`);
+    }
+
+    // ── Chaos Awakening: 自動佔領 ──
+    const autoResult = autoConquestCheck(state);
+    if (autoResult) {
+      const msg = autoResult.advanced
+        ? `🏰 自動佔領 (${autoResult.row},${autoResult.col})，前線推進！`
+        : `🏰 自動佔領 (${autoResult.row},${autoResult.col})`;
+      showChaosAlert(msg);
+      updateTerritoryUI();
+    }
 
     // 進入 Draft 階段
     enterDraftPhase();
@@ -185,7 +250,9 @@ function buildShop() {
 function selectPlant(name) {
   if (!state.deck.includes(name)) return;
   state.selectedPlant = name;
+  state.conquestMode = false; // 離開佔領模式
   [...document.querySelectorAll('.card')].forEach(c => c.classList.toggle('selected', c.dataset.plant === name));
+  updateTerritoryUI();
 }
 
 // ═══════════════════════════════════════════════
@@ -222,11 +289,44 @@ function updateSpellBarUI() {
 // ═══════════════════════════════════════════════
 
 function createBoard() {
-  makeBoard(boardEl, rows, cols, (r, c) => { ensureAudio(); placePlant(r, c); });
+  makeBoard(boardEl, rows, cols, (r, c) => { ensureAudio(); handleCellClick(r, c); });
+}
+
+function handleCellClick(r, c) {
+  if (state.gameOver || state.draftPhase) return;
+
+  // ── 佔領模式 ──
+  if (state.conquestMode) {
+    const result = tryConquest(state, r, c);
+    if (result.ok) {
+      sfx('plant');
+      showChaosAlert(result.msg);
+      if (result.advanced) {
+        createBoard(); // 重建棋盤以反映新前線
+      }
+      updateTerritoryUI();
+      syncStats();
+      render();
+    } else {
+      flash(sunEl);
+      showChaosAlert(`❌ ${result.msg}`);
+    }
+    return;
+  }
+
+  placePlant(r, c);
 }
 
 function placePlant(r, c) {
   if (state.gameOver || state.draftPhase) return;
+
+  // ── Chaos Awakening: 檢查領土限制 ──
+  if (!isCellPlayable(state, c)) {
+    showChaosAlert('🚫 此格尚未佔領！切換到佔領模式以推進前線。');
+    flash(boardEl);
+    return;
+  }
+
   const key = cellKey(r, c);
   const type = state.selectedPlant;
   const def = PLANTS[type];
@@ -237,18 +337,31 @@ function placePlant(r, c) {
   if (state.sun < actualCost) return flash(sunEl);
 
   state.sun -= actualCost;
-  state.cooldowns[type] = def.cooldown;
+  // ── Chaos Awakening: 遺物冷卻縮短 ──
+  const cdReduction = state.relicBuffs?.cooldownReduction || 0;
+  state.cooldowns[type] = def.cooldown * (1 - cdReduction);
 
   // 計算進化後的屬性
   const level = 1;
   const evo = getEvolutionBonus(type, level);
-  const hpWithBuff = Math.round(def.hp * (1 + (state.globalBuffs.hp || 0)) + (evo.bonusHp || 0));
+  let hpWithBuff = Math.round(def.hp * (1 + (state.globalBuffs.hp || 0)) + (evo.bonusHp || 0));
+
+  // ── Chaos Awakening: 遺物 HP 加成 ──
+  hpWithBuff = Math.round(hpWithBuff * (1 + (state.relicBuffs.hpPercent || 0)));
+
+  // ── Chaos Awakening: 領土防禦加成 ──
+  const terrDef = territoryDefenseMultiplier(state, r, c);
+  hpWithBuff = Math.round(hpWithBuff * terrDef);
+
+  // ── Chaos Awakening: 遺物起始 XP ──
+  const startXp = state.relicBuffs.startXpBonus || 0;
 
   state.plants.set(key, {
     type, row: r, col: c,
     hp: hpWithBuff, maxHp: hpWithBuff,
     attackTimer: 0, sunTimer: 0, explodeTimer: 0.8,
-    level, xp: 0,
+    level: startXp >= 50 ? 2 : 1, // 如果遺物給的 XP 夠升級
+    xp: startXp,
   });
 
   syncStats();
@@ -340,11 +453,125 @@ function updateBossHpBar() {
 }
 
 // ═══════════════════════════════════════════════
+// 領土 UI
+// ═══════════════════════════════════════════════
+
+function updateTerritoryUI() {
+  const frontlineEl = document.getElementById('frontlineInfo');
+  if (frontlineEl) {
+    frontlineEl.textContent = `前線：第 ${state.territory.frontline} 列 | 佔領：${state.territory.conquered.size} 格`;
+  }
+
+  const conquestBtn = document.getElementById('conquestBtn');
+  if (conquestBtn) {
+    conquestBtn.textContent = state.conquestMode ? '⚔️ 佔領中...' : '🗡️ 佔領';
+    conquestBtn.classList.toggle('active', state.conquestMode);
+  }
+
+  // 更新棋盤上的領土視覺
+  updateBoardTerritoryVisuals();
+}
+
+function updateBoardTerritoryVisuals() {
+  const cells = boardEl.querySelectorAll('.cell');
+  cells.forEach(cell => {
+    const r = parseInt(cell.dataset.row);
+    const c = parseInt(cell.dataset.col);
+
+    // 清除舊的領土 class
+    cell.classList.remove('conquered', 'unplayable', 'frontline');
+
+    if (!isCellPlayable(state, c)) {
+      cell.classList.add('unplayable');
+    }
+
+    if (isConqueredCell(state, r, c)) {
+      cell.classList.add('conquered');
+    }
+
+    if (c === state.territory.frontline) {
+      cell.classList.add('frontline');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// 遺物選擇 UI
+// ═══════════════════════════════════════════════
+
+function showRelicSelection() {
+  state.relicPhase = true;
+  state.relicChoices = generateRelicChoices();
+
+  if (state.relicChoices.length === 0) {
+    // 沒有可選遺物，直接開始
+    state.relicPhase = false;
+    return;
+  }
+
+  const relicOv = document.getElementById('relicOverlay');
+  const relicCardsEl = document.getElementById('relicCards');
+  const relicTitleEl = document.getElementById('relicTitle');
+
+  if (!relicOv || !relicCardsEl) return;
+
+  relicTitleEl.textContent = `🏆 你撐到了第 ${state.wave} 波！選擇一個遺物帶入下一局：`;
+
+  relicCardsEl.innerHTML = state.relicChoices.map((relic, i) => {
+    const color = getRarityColor(relic.rarity);
+    const rarityLabel = { common: '普通', rare: '稀有', legendary: '傳說' }[relic.rarity] || '普通';
+    return `
+      <div class="relic-card" data-index="${i}" style="border-color: ${color};">
+        <div class="relic-rarity" style="color: ${color};">${rarityLabel}</div>
+        <div class="relic-emoji">${relic.emoji}</div>
+        <div class="relic-name">${relic.name}</div>
+        <div class="relic-desc">${relic.desc}</div>
+      </div>
+    `;
+  }).join('');
+
+  relicOv.classList.add('show');
+
+  relicCardsEl.querySelectorAll('.relic-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index);
+      selectRelic(idx);
+    });
+  });
+}
+
+function selectRelic(idx) {
+  const relic = state.relicChoices[idx];
+  if (!relic) return;
+
+  chooseRelic(relic.id);
+  sfx('evolve');
+
+  const relicOv = document.getElementById('relicOverlay');
+  if (relicOv) relicOv.classList.remove('show');
+  state.relicPhase = false;
+}
+
+// ═══════════════════════════════════════════════
 // 主更新迴圈
 // ═══════════════════════════════════════════════
 
 function update(dt) {
   if (state.gameOver || state.draftPhase) return;
+
+  // ── Chaos Awakening: 護盾計時器 ──
+  if (state.shieldTimer > 0) {
+    state.shieldTimer -= dt;
+  }
+
+  // ── Chaos Awakening: 混沌馴服效果 ──
+  if (state.chaosHarnessed && state.harnessEffect) {
+    // 極光效果：每秒 +8 陽光
+    if (state.harnessEffect.type === 'aurora') {
+      state.sun += Math.round(state.harnessEffect.sunPerSec * dt);
+    }
+    // 陽光海嘯：sunshower 產量翻倍（在 economy 中檢查 harnessEffect）
+  }
 
   // 修飾器
   updateModifiers(state, dt);
@@ -359,6 +586,13 @@ function update(dt) {
   updatePlantsCombat(state, dt, sfx, addSun, (row, col) => state.plants.delete(cellKey(row, col)));
   updatePeasCombat(state, dt, sfx);
   if (!updateZombieCombat(state, dt, sfx, cellKey)) {
+    // ── Chaos Awakening: 鳳凰復活 ──
+    if (checkPhoenixRevive(state)) {
+      showChaosAlert('🪶 鳳凰羽毛！你從死亡中復活了！');
+      sfx('spell');
+      render();
+      return;
+    }
     gameEnd(false);
     return;
   }
@@ -395,8 +629,15 @@ function update(dt) {
   if (state.wave >= 2) {
     const chaosEvent = checkChaosTrigger(state, dt);
     if (chaosEvent) {
-      sfx('chaos');
-      showChaosAlert(`🌪️ ${chaosEvent.name}：${chaosEvent.desc}`);
+      // ── Chaos Awakening: 嘗試馴服 ──
+      const harnessResult = tryHarnessChaos(state, chaosEvent);
+      if (harnessResult) {
+        sfx('spell');
+        showChaosAlert(`🌀 ${harnessResult.name}：${harnessResult.desc}`);
+      } else {
+        sfx('chaos');
+        showChaosAlert(`🌪️ ${chaosEvent.name}：${chaosEvent.desc}`);
+      }
     }
   }
 
@@ -414,6 +655,8 @@ function update(dt) {
 
 function render() {
   renderEntities(boardEl, state);
+  // 持續更新領土視覺
+  updateBoardTerritoryVisuals();
 }
 
 // ═══════════════════════════════════════════════
@@ -424,14 +667,22 @@ function gameEnd(win) {
   state.gameOver = true;
   overlayEl.classList.add('show');
 
+  // ── Chaos Awakening: 記錄跑局 ──
+  recordRun(state);
+
+  const ownedRelics = loadRelics();
+
   if (win) {
     endTitleEl.textContent = '🎉 你贏了！';
-    endTextEl.textContent = `通關到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻，牌組 ${state.deck.length} 張！`;
+    endTextEl.textContent = `通關到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻，牌組 ${state.deck.length} 張！\n領土：${state.territory.conquered.size} 格已佔領\n遺物：${ownedRelics.length} 個`;
     sfx('win');
   } else {
     endTitleEl.textContent = '💀 殭屍突破了防線';
-    endTextEl.textContent = `你撐到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻。\n牌組：${state.deck.map(k => PLANTS[k]?.emoji || k).join(' ')}\n\n再來一次，下一次一定更強！`;
+    endTextEl.textContent = `你撐到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻。\n牌組：${state.deck.map(k => PLANTS[k]?.emoji || k).join(' ')}\n領土：${state.territory.conquered.size} 格已佔領\n遺物：${ownedRelics.length} 個\n\n🏆 選擇一個遺物帶入下一局！`;
     sfx('lose');
+
+    // 顯示遺物選擇
+    setTimeout(() => showRelicSelection(), 800);
   }
 }
 
@@ -445,7 +696,7 @@ function syncStats() {
   waveEl.textContent = state.wave;
   mowerEl.textContent = state.lawnmowers.filter(m => !m.used).length;
   if (deckCountEl) deckCountEl.textContent = state.deck.length;
-  if (runInfoEl) runInfoEl.textContent = `跑局：第 ${state.wave} 波`;
+  if (runInfoEl) runInfoEl.textContent = `跑局：第 ${state.wave} 波 | 🏛️ ${loadRelics().length} 遺物`;
 }
 
 // ═══════════════════════════════════════════════
@@ -456,7 +707,7 @@ function frame(ts) {
   if (!lastTime) lastTime = ts;
   const dt = Math.min((ts - lastTime) / 1000, 0.033);
   lastTime = ts;
-  if (!isPaused && !state.draftPhase) {
+  if (!isPaused && !state.draftPhase && !state.relicPhase) {
     update(dt);
     render();
   }
@@ -493,4 +744,17 @@ export function bindGameEvents() {
       handleSwapMode(r, c);
     }
   });
+
+  // ── 佔領按鈕 ──
+  const conquestBtn = document.getElementById('conquestBtn');
+  if (conquestBtn) {
+    conquestBtn.addEventListener('click', () => {
+      state.conquestMode = !state.conquestMode;
+      if (state.conquestMode) {
+        state.selectedPlant = null;
+        [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
+      }
+      updateTerritoryUI();
+    });
+  }
 }

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════
 // Chaos System — 混亂事件
 // ═══════════════════════════════════════════════
-import { CHAOS_EVENTS } from '../config.js';
+import { CHAOS_EVENTS, cols } from '../config.js';
 import { randomPick, shuffleArray, cellKey } from '../core/helpers.js';
 
 // 檢查是否該觸發混亂事件
@@ -28,7 +28,19 @@ function triggerChaosEvent(state) {
   state.chaosEvent = event;
   state.chaosTimer = event.duration || 1;
   state.chaosCooldown = 0;
-  state.nextChaosAt = 18 + Math.random() * 12; // 下次 18~30 秒
+
+  // ── Chaos Awakening: 遺物影響混沌間隔 ──
+  const chaosDelay = state.relicBuffs?.chaosDelay || 0;
+  state.nextChaosAt = (18 + Math.random() * 12) * (1 + chaosDelay);
+
+  // ── Chaos Awakening: 混沌珍珠 — 機率反轉 ──
+  const invertChance = state.relicBuffs?.chaosInvertChance || 0;
+  if (invertChance > 0 && Math.random() < invertChance) {
+    state.chaosInverted = true;
+    applyInvertedChaosEffect(state, event);
+    return { ...event, name: event.name + '（反轉！）', desc: '效果反轉為正面！' };
+  }
+  state.chaosInverted = false;
 
   applyChaosEffect(state, event);
   return event;
@@ -102,6 +114,58 @@ function applyChaosEffect(state, event) {
 function endChaosEvent(state) {
   state.chaosEvent = null;
   state.chaosTimer = 0;
+  state.chaosHarnessed = false;
+  state.harnessEffect = null;
+  state.chaosInverted = false;
+}
+
+// ── Chaos Awakening: 反轉混沌效果 ──────────
+function applyInvertedChaosEffect(state, event) {
+  switch (event.id) {
+    case 'meteor': {
+      // 隕石反轉：隨機 3 格植物獲得 +30% HP
+      const plantKeys = [...state.plants.keys()];
+      const targets = shuffleArray(plantKeys).slice(0, 3);
+      for (const key of targets) {
+        const p = state.plants.get(key);
+        if (p) { p.hp = Math.round(p.hp * 1.3); p.maxHp = Math.round(p.maxHp * 1.3); }
+      }
+      break;
+    }
+    case 'mutation': {
+      // 突變反轉：殭屍 debuff
+      for (const z of state.zombies) {
+        z.speed *= 0.85; z.hp = Math.round(z.hp * 0.85);
+      }
+      break;
+    }
+    case 'eclipse':
+      // 日蝕反蝕反轉：雙倍陽光掉落 8 秒
+      break;
+    case 'gravity': {
+      // 重力反轉：殭屍被推後 1 格
+      for (const z of state.zombies) {
+        z.x = Math.min(cols, z.x + 1);
+      }
+      break;
+    }
+    case 'fertile':
+      // 肥沃之雨反轉：已經是正面的，再加 10%
+      break;
+    case 'undead':
+      // 亡者歸來反轉：殭屍不復活，改為每隻死亡殭屍 +10 陽光
+      break;
+    case 'sunshower':
+      // 陽光暴雨反轉：已經是正面的
+      break;
+    case 'earthquake': {
+      // 大地震反轉：植物被排列整齊
+      for (const [key, plant] of state.plants) {
+        // 不做任何壞事
+      }
+      break;
+    }
+  }
 }
 
 // 檢查是否在混亂事件中

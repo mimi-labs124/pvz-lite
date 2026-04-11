@@ -19,6 +19,8 @@ export function renderEntities(boardEl, state) {
 
     el.className = `plant ${p.type}`;
     if (level >= 2) el.classList.add(`evo-${level}`);
+    // ── Chaos Awakening: 護盾效果 ──
+    if (state.shieldTimer > 0) el.classList.add('shielded');
     el.innerHTML = `
       ${PLANTS[p.type]?.emoji || '?'}
       <div class="evo-indicator" style="color:${LEVEL_COLORS[level]}">${LEVEL_STARS[level]}</div>

@@ -122,6 +122,13 @@ export const DRAFT_POOL = {
 // ── 起始牌組 ──────────────────────────────────
 export const STARTING_DECK = ['peashooter', 'sunflower', 'wallnut'];
 
+// ── 領土常數 ──────────────────────────────────
+export const TERRITORY_START_COLS = 5;       // 起始可放置列數
+export const TERRITORY_MAX_COLS = 9;         // 棋盤總列數
+export const CONQUEST_BASE_COST = 100;        // 佔領基礎花費
+export const CONQUEST_SUN_PER_WAVE = 15;      // 每格佔領每波獎勵
+export const CONQUEST_DEFENSE_BONUS = 0.05;   // 佔領格防禦加成
+
 // ── 波次殭屍池 ─────────────────────────────────
 export function zombieKindForWave(w) {
   const pool = ['normal'];

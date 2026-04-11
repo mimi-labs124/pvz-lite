@@ -1,4 +1,4 @@
-import { rows, XP_LEVELS } from '../config.js';
+import { rows, XP_LEVELS, TERRITORY_START_COLS } from '../config.js';
 
 export function createRunState() {
   return {
@@ -72,6 +72,25 @@ export function createRunState() {
     modifier: 'normal',
     modifierTimer: 0,
     modifierWave: 0,
+
+    // ── 遺物系統 (Chaos Awakening) ──
+    relicBuffs: {},
+    phoenixUsed: false,
+    relicPhase: false,
+    relicChoices: [],
+
+    // ── 混沌馴服 (Chaos Awakening) ──
+    chaosHarnessed: false,
+    harnessEffect: null,
+    shieldTimer: 0,
+
+    // ── 領土系統 (Chaos Awakening) ──
+    territory: {
+      frontline: TERRITORY_START_COLS,
+      conquered: new Set(),
+      maxCol: 8,
+    },
+    conquestMode: false, // 是否正在佔領模式
 
     // ── 遊戲結束 ──
     gameOver: false,

@@ -20,9 +20,10 @@ export function triggerBomb(state, plant, sfx) {
 }
 
 export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
-  const attackSpeedBuff = 1 + (state.globalBuffs.attackSpeed || 0);
+  const attackSpeedBuff = 1 + (state.globalBuffs.attackSpeed || 0) + (state.relicBuffs?.attackSpeed || 0);
   const fertileBuff = isChaosActive(state, 'fertile') ? 1.4 : 1;
   const critChance = state.globalBuffs.critChance || 0;
+  const shielded = state.shieldTimer > 0; // Chaos Awakening: 護盾
 
   for (const p of [...state.plants.values()]) {
     // 自癒 buff
@@ -277,8 +278,11 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
       if (z.biteTimer >= 0.7) {
         z.biteTimer = 0;
         const biteDmg = ZOMBIES[z.kind]?.bite || 18;
-        plant.hp -= biteDmg;
-        if (plant.hp <= 0) state.plants.delete(key);
+        // Chaos Awakening: 護盾無敵
+        if (state.shieldTimer <= 0) {
+          plant.hp -= biteDmg;
+          if (plant.hp <= 0) state.plants.delete(key);
+        }
       }
     } else if (!z.frozen) {
       z.x -= eff * dt;
