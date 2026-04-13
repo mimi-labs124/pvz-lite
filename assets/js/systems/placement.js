@@ -4,7 +4,6 @@ import { actualPlantCost } from './shop.js';
 
 /**
  * Attempt to place a plant on the board.
- * @returns {{ ok: boolean, flashTarget?: string, plantType?: string }}
  */
 export function tryPlacePlant(state, plantKey, row, col) {
   const key = cellKey(row, col);
@@ -23,6 +22,7 @@ export function tryPlacePlant(state, plantKey, row, col) {
     hp: def.hp, maxHp: def.hp,
     attackTimer: 0, sunTimer: 0, explodeTimer: 0.8,
     chompTimer: 0,
+    level: 1,  // Upgrade level
   });
 
   return { ok: true, plantType: plantKey };
@@ -30,7 +30,6 @@ export function tryPlacePlant(state, plantKey, row, col) {
 
 /**
  * Shovel a plant — remove it and refund partial sun.
- * @returns {{ ok: boolean, refund: number }}
  */
 export function tryShovelPlant(state, row, col) {
   const key = cellKey(row, col);
@@ -42,4 +41,30 @@ export function tryShovelPlant(state, row, col) {
   state.plants.delete(key);
   state.shovelUses++;
   return { ok: true, refund };
+}
+
+/**
+ * Upgrade a plant — spend sun to power it up (max level 2).
+ * @returns {{ ok: boolean, cost?: number }}
+ */
+export function tryUpgradePlant(state, row, col) {
+  const key = cellKey(row, col);
+  const plant = state.plants.get(key);
+  if (!plant) return { ok: false };
+  const def = PLANTS[plant.type];
+  if (!def.upgradeCost) return { ok: false, reason: 'no_upgrade' };
+  if (plant.level >= 2) return { ok: false, reason: 'max_level' };
+  if (state.sun < def.upgradeCost) return { ok: false, reason: 'no_sun' };
+
+  state.sun -= def.upgradeCost;
+  plant.level = 2;
+  state.upgradeCount++;
+
+  // Apply upgrade effects
+  if (plant.type === 'wallnut') {
+    plant.hp += 120;
+    plant.maxHp += 120;
+  }
+
+  return { ok: true, cost: def.upgradeCost };
 }

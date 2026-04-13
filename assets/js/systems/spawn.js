@@ -20,15 +20,33 @@ export function spawnZombie(state) {
   const base = ZOMBIES[kind];
   const hpScale = (1 + (state.wave - 1) * 0.14) * level.hpScale;
   const shield = kind === 'bucket' && state.wave >= 7;
-  const digger = kind === 'digger';
+  const isDigger = kind === 'digger';
   state.zombies.push({
     id: state.nextZombieId++, kind, row,
-    x: digger ? -0.5 : cols - 0.1,  // Diggers start from the left!
+    x: isDigger ? -0.5 : cols - 0.1,
     hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
     speed: base.speed * level.speedScale, biteTimer: 0, slowTimer: 0,
-    angry: false, shield, digger,
-    digTimer: digger ? (3 + Math.random() * 2) : 0,  // Time before surfacing
-    digSurfaceCol: digger ? Math.floor(Math.random() * 3) + 1 : 0, // Surface column
+    angry: false, shield,
+    digger: isDigger,
+    digTimer: isDigger ? (3 + Math.random() * 2) : 0,
+    digSurfaceCol: isDigger ? Math.floor(Math.random() * 3) + 1 : 0,
+    hasImp: kind === 'giant',  // Giant carries an imp
+  });
+}
+
+/** Spawn an imp that leaps from a dying giant */
+export function spawnImp(state, row, x) {
+  const base = ZOMBIES.imp;
+  const level = LEVELS[state.levelKey];
+  const hpScale = (1 + (state.wave - 1) * 0.14) * level.hpScale;
+  state.zombies.push({
+    id: state.nextZombieId++, kind: 'imp', row,
+    x: Math.max(0, x - 0.5),
+    hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
+    speed: base.speed * level.speedScale, biteTimer: 0, slowTimer: 0,
+    angry: false, shield: false,
+    digger: false, digTimer: 0, digSurfaceCol: 0,
+    hasImp: false,
   });
 }
 

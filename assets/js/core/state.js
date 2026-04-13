@@ -14,20 +14,30 @@ export function createGameState(levelKey, level) {
     peas: [],
     suns: [],
     booms: [],
+    powerups: [],       // Power-up drops on the board
     lawnmowers: Array.from({ length: rows }, (_, row) => ({ row, x: -0.25, active: false, used: false })),
     spawnTimer: 0,
     sunTimer: 0,
     gameOver: false,
     nextZombieId: 1,
     nextSunId: 1,
+    nextPowerupId: 1,
     cooldowns: {},
     modifier: 'normal',
     modifierTimer: 0,
     modifierWave: 0,
+    hailTimer: 0,
     // Combo / streak system
     combo: 0,
     comboTimer: 0,
     maxCombo: 0,
+    // Upgrade tracking
+    upgradeCount: 0,
+    // Power-up tracking
+    powerupsCollected: 0,
+    shieldTimer: 0,      // Global shield from power-up
+    // Speed control
+    gameSpeed: 1,
     // Achievement tracking (per-run)
     unlockedAchievements: new Set(),
     wonNormal: false,

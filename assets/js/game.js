@@ -1,8 +1,8 @@
-import { rows, cols, LEVELS, PLANTS } from './config.js';
+import { rows, cols, LEVELS, PLANTS, POWERUPS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
 import { boardEl, sunEl, killsEl, waveEl, mowerEl, levelHintEl, levelSelect, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl, pauseBtn, shopEl } from './dom.js';
 import { updateLevelHint, updateBattleStatus } from './systems/status.js';
-import { spawnZombie, spawnFlagWave } from './systems/spawn.js';
+import { spawnZombie, spawnFlagWave, spawnImp } from './systems/spawn.js';
 import { updateShop } from './systems/shop.js';
 import { createGameState, initCooldowns } from './core/state.js';
 import { flash } from './core/helpers.js';
@@ -10,12 +10,12 @@ import { addSun } from './systems/economy.js';
 import { makeBoard } from './render/board.js';
 import { renderEntities } from './render/entities.js';
 import { updateModifiers, modifierSpawnPenalty, modifierSunSpeed, killReward } from './systems/modifiers.js';
-import { cleanupState } from './systems/cleanup.js';
+import { cleanupState, collectPowerup, maybeDropPowerup } from './systems/cleanup.js';
 import { updatePlantsCombat, updatePeasCombat, updateZombieCombat } from './systems/combat.js';
 import { bindPause, bindBoardInteraction } from './ui/bindings.js';
 import { createLoop } from './core/loop.js';
 import { buildShop, highlightSelected } from './ui/shop-ui.js';
-import { tryPlacePlant, tryShovelPlant } from './systems/placement.js';
+import { tryPlacePlant, tryShovelPlant, tryUpgradePlant } from './systems/placement.js';
 import { checkAchievements, showAchievementToast, loadRecords, saveRecord } from './systems/achievements.js';
 
 let state;
@@ -39,6 +39,8 @@ function selectPlant(name) {
 
 function toggleShovel() {
   state.shovelMode = !state.shovelMode;
+  if (state.shovelMode) state.selectedPlant = null;
+  highlightSelected('');
   updateShovelBtn();
 }
 
@@ -63,6 +65,16 @@ function syncStats() {
   }
   comboEl.textContent = state.combo >= 2 ? `🔥 ${state.combo}x` : '';
   comboEl.classList.toggle('show', state.combo >= 2);
+  // Speed display
+  let speedEl = document.getElementById('speedDisplay');
+  if (!speedEl) {
+    speedEl = document.createElement('div');
+    speedEl.id = 'speedDisplay';
+    speedEl.className = 'speed-display';
+    const statsEl = document.querySelector('.stats');
+    if (statsEl) statsEl.appendChild(speedEl);
+  }
+  speedEl.textContent = state.gameSpeed > 1 ? `⏩ ${state.gameSpeed}x` : '';
 }
 
 function createBoard() {
@@ -74,10 +86,26 @@ function createBoard() {
       placePlant(r, c);
     }
   });
+
+  // Right-click / long-press on planted cell to upgrade
+  boardEl.querySelectorAll('.cell').forEach(cell => {
+    cell.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const r = Number(cell.dataset.row);
+      const c = Number(cell.dataset.col);
+      handleUpgrade(r, c);
+    });
+  });
 }
 
 function placePlant(r, c) {
   if (state.gameOver) return;
+  const key = `${r}-${c}`;
+  // If there's already a plant, try to upgrade it instead
+  if (state.plants.has(key)) {
+    handleUpgrade(r, c);
+    return;
+  }
   const result = tryPlacePlant(state, state.selectedPlant, r, c);
   if (!result.ok) {
     if (result.flashTarget === 'sun') flash(sunEl);
@@ -95,6 +123,19 @@ function handleShovel(r, c) {
   const result = tryShovelPlant(state, r, c);
   if (!result.ok) return;
   sfx('shovel');
+  syncStats();
+  updateShop(state, PLANTS);
+  render();
+}
+
+function handleUpgrade(r, c) {
+  if (state.gameOver) return;
+  const result = tryUpgradePlant(state, r, c);
+  if (!result.ok) {
+    if (result.reason === 'no_sun') flash(sunEl);
+    return;
+  }
+  sfx('upgrade');
   syncStats();
   updateShop(state, PLANTS);
   render();
@@ -166,10 +207,21 @@ function phaseMowers(dt) {
 }
 
 function phaseCleanup(dt) {
+  // Track dead zombies before cleanup for imp spawn + powerup drops
+  const deadZombies = state.zombies.filter(z => z.hp <= 0 && !z._processed);
+  for (const z of deadZombies) {
+    z._processed = true;
+    // Giant drops imp
+    if (z.kind === 'giant' && z.hasImp) {
+      spawnImp(state, z.row, z.x);
+    }
+    // Maybe drop power-up
+    maybeDropPowerup(state, z.row, z.x);
+  }
+
   const { killed } = cleanupState(state, dt);
   if (killed > 0) {
     state.kills += killed;
-    // Combo bonus: extra sun for combo streaks
     const comboBonus = state.combo >= 10 ? 5 : state.combo >= 5 ? 3 : state.combo >= 3 ? 1 : 0;
     state.sun += killed * killReward(12, state.modifier) + comboBonus;
     if (comboBonus > 0) sfx('combo');
@@ -179,9 +231,7 @@ function phaseCleanup(dt) {
 
 function phaseAchievements() {
   const newAch = checkAchievements(state);
-  for (const ach of newAch) {
-    showAchievementToast(ach);
-  }
+  for (const ach of newAch) showAchievementToast(ach);
 }
 
 function phaseUISync(dt) {
@@ -193,10 +243,7 @@ function phaseUISync(dt) {
   if (state.wave !== lastAnnouncedWave && state.wave > 1) {
     lastAnnouncedWave = state.wave;
     showWaveToast(state.wave);
-    // Flag zombie triggers extra spawns on big waves
-    if (state.wave % 5 === 0) {
-      spawnFlagWave(state);
-    }
+    if (state.wave % 5 === 0) spawnFlagWave(state);
   }
   if (waveToastTimer > 0) {
     waveToastTimer -= dt;
@@ -206,11 +253,10 @@ function phaseUISync(dt) {
     }
   }
 
-  // Best record display
   updateBestRecord();
+  updateCellHighlights();
 }
 
-/** Show best record in overlay area */
 function updateBestRecord() {
   let recEl = document.getElementById('bestRecord');
   if (!recEl) {
@@ -222,24 +268,49 @@ function updateBestRecord() {
   }
   const records = loadRecords();
   const key = state.levelKey;
-  if (records[key]) {
-    recEl.textContent = `🏆 ${records[key].kills}殺/${records[key].wave}波`;
-  } else {
-    recEl.textContent = '';
+  recEl.textContent = records[key] ? `🏆 ${records[key].kills}殺/${records[key].wave}波` : '';
+}
+
+/** Highlight cells to show valid/invalid placement */
+function updateCellHighlights() {
+  if (!state.selectedPlant || state.shovelMode || state.gameOver) {
+    boardEl.querySelectorAll('.cell').forEach(c => c.classList.remove('valid', 'invalid'));
+    return;
   }
+  const def = PLANTS[state.selectedPlant];
+  if (!def) return;
+  boardEl.querySelectorAll('.cell').forEach(c => {
+    const r = Number(c.dataset.row);
+    const col = Number(c.dataset.col);
+    const key = `${r}-${col}`;
+    const hasPlant = state.plants.has(key);
+    const canAfford = state.sun >= def.cost;
+    const notOnCooldown = state.cooldowns[state.selectedPlant] <= 0;
+    if (hasPlant) {
+      c.classList.remove('valid');
+      c.classList.add('invalid');
+    } else if (canAfford && notOnCooldown) {
+      c.classList.add('valid');
+      c.classList.remove('invalid');
+    } else {
+      c.classList.remove('valid');
+      c.classList.add('invalid');
+    }
+  });
 }
 
 /** Main tick — called by the loop every frame with capped dt */
 function gameTick(dt) {
   if (state.gameOver) return;
-  phaseModifiers(dt);
-  phaseSpawn(dt);
-  phaseEconomy(dt);
-  if (!phaseCombat(dt)) return;
-  phaseMowers(dt);
-  phaseCleanup(dt);
+  const speedDt = dt * state.gameSpeed;
+  phaseModifiers(speedDt);
+  phaseSpawn(speedDt);
+  phaseEconomy(speedDt);
+  if (!phaseCombat(speedDt)) return;
+  phaseMowers(speedDt);
+  phaseCleanup(speedDt);
   phaseAchievements();
-  phaseUISync(dt);
+  phaseUISync(dt); // UI sync always at real time
   const level = LEVELS[state.levelKey];
   if (state.kills >= level.winKills) gameEnd(true);
 }
@@ -255,16 +326,15 @@ function gameEnd(win) {
     if (state.levelKey === 'hard') state.wonHard = true;
     if (state.levelKey === 'survival') state.wonSurvival = true;
   }
-  // Check achievements one last time
   phaseAchievements();
-  // Save record
   saveRecord(state.levelKey, state.kills, state.wave, state.maxCombo);
 
   overlayEl.classList.add('show');
   endTitleEl.textContent = win ? '你贏了！' : '殭屍進家門了';
   const comboStr = state.maxCombo >= 3 ? ` | 最高 ${state.maxCombo}x 連殺` : '';
+  const upgradeStr = state.upgradeCount > 0 ? ` | ${state.upgradeCount}次升級` : '';
   endTextEl.textContent = win
-    ? `通關 ${levelSelect.options[levelSelect.selectedIndex].text}，擊殺 ${state.kills} 隻，打到第 ${state.wave} 波${comboStr}。`
+    ? `通關 ${levelSelect.options[levelSelect.selectedIndex].text}，擊殺 ${state.kills} 隻，打到第 ${state.wave} 波${comboStr}${upgradeStr}。`
     : `你撐到第 ${state.wave} 波，擊殺 ${state.kills} 隻${comboStr}。`;
   sfx(win ? 'win' : 'lose');
 }
@@ -298,9 +368,33 @@ export function bindGameEvents() {
   // Shovel button
   const shovelBtn = document.getElementById('shovelBtn');
   if (shovelBtn) {
-    shovelBtn.addEventListener('click', () => {
+    shovelBtn.addEventListener('click', () => { ensureAudio(); toggleShovel(); });
+  }
+
+  // Speed control
+  const speedBtn = document.getElementById('speedBtn');
+  if (speedBtn) {
+    speedBtn.addEventListener('click', () => {
       ensureAudio();
-      toggleShovel();
+      state.gameSpeed = state.gameSpeed >= 2 ? 1 : state.gameSpeed + 0.5;
+      speedBtn.textContent = state.gameSpeed > 1 ? `⏩ ${state.gameSpeed}x` : '⏩ 加速';
+      speedBtn.classList.toggle('active', state.gameSpeed > 1);
+      syncStats();
     });
   }
+
+  // Power-up collection (pointerdown on board)
+  boardEl.addEventListener('pointerdown', e => {
+    const t = e.target.closest('.powerup');
+    if (t) {
+      e.preventDefault();
+      e.stopPropagation();
+      ensureAudio();
+      if (collectPowerup(state, Number(t.dataset.powerupId))) {
+        sfx('powerup');
+        syncStats();
+        render();
+      }
+    }
+  });
 }

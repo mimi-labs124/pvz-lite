@@ -34,6 +34,8 @@ export function sfx(name) {
   if (name === 'chomp') { beep(320, 0.04, 'sawtooth', 0.06); setTimeout(() => beep(220, 0.08, 'sawtooth', 0.05), 50); }
   if (name === 'ignite') { beep(600, 0.04, 'square', 0.04); setTimeout(() => beep(900, 0.06, 'sawtooth', 0.04), 30); }
   if (name === 'shovel') beep(350, 0.08, 'triangle', 0.05);
+  if (name === 'upgrade') { beep(523, 0.06, 'triangle', 0.06); setTimeout(() => beep(784, 0.1, 'triangle', 0.06), 60); }
+  if (name === 'powerup') { beep(659, 0.06, 'triangle', 0.06); setTimeout(() => beep(880, 0.08, 'triangle', 0.06), 60); setTimeout(() => beep(1046, 0.06, 'triangle', 0.05), 120); }
   if (name === 'achievement') { beep(784, 0.08, 'triangle', 0.07); setTimeout(() => beep(988, 0.08, 'triangle', 0.07), 80); setTimeout(() => beep(1174, 0.12, 'triangle', 0.06), 160); }
   if (name === 'combo') beep(1046, 0.04, 'square', 0.04);
   if (name === 'mower') beep(260, 0.08, 'square', 0.07);

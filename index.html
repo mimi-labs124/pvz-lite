@@ -12,7 +12,7 @@
   <div class="topbar">
     <div>
       <div class="title">🌻 植物大戰殭屍 Lite+</div>
-      <div class="muted">有冷卻、關卡、更多殭屍，手機也比較順。</div>
+      <div class="muted">有冷卻、關卡、升級、Power-up，手機也比較順。</div>
     </div>
     <div class="stats">
       <div class="pill">☀️ <span id="sunCount">150</span></div>
@@ -21,6 +21,7 @@
       <div class="pill">🚜 <span id="mowerCount">5</span></div>
       <div class="pill">🌦️ <span id="levelHint">穩定發育</span></div>
       <button id="shovelBtn" class="shovel-btn" title="鏟子：移除植物退回50%陽光">🪏 鏟子</button>
+      <button id="speedBtn" class="speed-btn" title="遊戲速度">⏩ 加速</button>
       <button id="pauseBtn">暫停</button>
       <select id="levelSelect">
         <option value="easy">關卡：簡單</option>
@@ -34,7 +35,7 @@
 
   <div class="layout">
     <aside class="panel">
-      <div style="font-weight:800;margin-bottom:8px">植物卡</div>
+      <div style="font-weight:800;margin-bottom:8px">植物卡 <span class="muted" style="font-size:11px">(點已種植物升級 / 右鍵升級)</span></div>
       <div id="mobileShop" class="mobile-bar"></div>
       <div id="shop" class="shop"></div>
       <div class="section">
@@ -42,15 +43,25 @@
         <div class="muted">音量：<span id="sfxValue">70%</span></div>
         <input id="sfxVolume" type="range" min="0" max="100" value="70" />
       </div>
-      <div class="section muted">
-        - 🪏 鏟子可移除植物，退回 50% 陽光<br>
-        - 🔥 火炬樹會把豌豆變成火球，2x 傷害+濺射<br>
-        - ⛏️ 礦工殭屍會從地下繞過防線從左邊冒出<br>
-        - 🚩 旗子殭屍代表大波殭屍來襲<br>
-        - 🔥 快速連殺可獲得 combo bonus 陽光<br>
-        - ❄️ 冰雹風暴會隨機冰傷植物<br>
-        - Blood Moon 讓殭屍變快，但擊殺回更多陽光<br>
-        - 賭徒花傷害很飄，大嘴花可秒殺殭屍
+      <div class="section muted tips">
+        <strong>操作</strong><br>
+        - 點空格放植物 / 點已種植物升級<br>
+        - 右鍵格位也可以升級<br>
+        - 🪏 鏟子移除植物退 50% 陽光<br><br>
+        <strong>植物</strong><br>
+        - 🌵 仙人掌：穿透射擊，打到地下殭屍<br>
+        - 🔥 火炬樹：豌豆變火球 2x+濺射<br>
+        - 🪴 大嘴花：秒殺殭屍但嚼很久<br>
+        - ★ 星號 = 已升級<br><br>
+        <strong>殭屍</strong><br>
+        - ⛏️ 礦工從地下繞過防線<br>
+        - 👺 小鬼從死亡巨人背上跳下<br>
+        - 🚩 旗子預告大波<br><br>
+        <strong>系統</strong><br>
+        - 🔥 連殺 combo 給 bonus 陽光<br>
+        - ✨⏱️💚🛡️ 殭屍掉落 Power-up<br>
+        - ❄️ 冰雹風暴隨機冰傷植物<br>
+        - ⏩ 加速按鈕切換 1x/1.5x/2x
       </div>
     </aside>
 

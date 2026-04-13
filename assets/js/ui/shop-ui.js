@@ -1,9 +1,5 @@
 /**
  * ui/shop-ui.js — Shop card construction & plant selection UI
- *
- * Handles:
- * - Building shop card DOM from PLANTS config
- * - Selecting a plant card (visual + state)
  */
 
 import { PLANTS } from '../config.js';
@@ -12,11 +8,15 @@ import { shopEl, mobileShopEl } from '../dom.js';
 
 /**
  * Build the shop card grid for both desktop and mobile bars.
- * @param {(plantKey: string) => void} onSelect  callback when a card is clicked
  */
 export function buildShop(onSelect) {
   const html = Object.entries(PLANTS).map(([k, p]) =>
-    `<div class="card" data-plant="${k}"><div class="row"><strong>${p.emoji} ${p.name}</strong><span class="cost">${p.cost} ☀️</span></div><div class="muted">${p.desc}</div><div class="cooldown"></div><div class="cooltxt"></div></div>`
+    `<div class="card" data-plant="${k}">
+      <div class="row"><strong>${p.emoji} ${p.name}</strong><span class="cost">${p.cost} ☀️</span></div>
+      <div class="muted">${p.desc}</div>
+      ${p.upgradeCost ? `<div class="upgrade-hint">⭐ 升級: ${p.upgradeCost}☀️ — ${p.upgradeDesc}</div>` : ''}
+      <div class="cooldown"></div><div class="cooltxt"></div>
+    </div>`
   ).join('');
   shopEl.innerHTML = html;
   mobileShopEl.innerHTML = html;
@@ -27,7 +27,6 @@ export function buildShop(onSelect) {
 
 /**
  * Update selection highlight on all card elements.
- * @param {string} plantKey  the selected plant key
  */
 export function highlightSelected(plantKey) {
   [...document.querySelectorAll('.card')].forEach(c =>
