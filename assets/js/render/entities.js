@@ -8,7 +8,8 @@ export function renderEntities(boardEl, state) {
     const cell = getCellEl(boardEl, p.row, p.col);
     if (!cell) continue;
     const el = document.createElement('div');
-    el.className = `plant ${p.type}`;
+    const isChomping = p.type === 'chomper' && p.chompTimer > 0;
+    el.className = `plant ${p.type}${isChomping ? ' chewing' : ''}`;
     el.innerHTML = `${PLANTS[p.type].emoji}<div class="hp"><i style="width:${Math.max(0, p.hp / p.maxHp * 100)}%"></i></div>`;
     cell.appendChild(el);
   }

@@ -1,39 +1,39 @@
-import { rows, cols, LEVELS, PLANTS, ZOMBIES } from './config.js';
+import { rows, cols, LEVELS, PLANTS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
-import { boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl, levelHintEl, levelSelect, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl, pauseBtn } from './dom.js';
+import { boardEl, sunEl, killsEl, waveEl, mowerEl, levelHintEl, levelSelect, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl, pauseBtn, shopEl } from './dom.js';
 import { updateLevelHint, updateBattleStatus } from './systems/status.js';
 import { spawnZombie } from './systems/spawn.js';
-import { updateShop, actualPlantCost } from './systems/shop.js';
+import { updateShop } from './systems/shop.js';
 import { createGameState, initCooldowns } from './core/state.js';
-import { cellKey, flash } from './core/helpers.js';
-import { addSun, collectSun } from './systems/economy.js';
+import { flash } from './core/helpers.js';
+import { addSun } from './systems/economy.js';
 import { makeBoard } from './render/board.js';
 import { renderEntities } from './render/entities.js';
 import { updateModifiers, modifierSpawnPenalty, modifierSunSpeed, killReward } from './systems/modifiers.js';
 import { cleanupState } from './systems/cleanup.js';
 import { updatePlantsCombat, updatePeasCombat, updateZombieCombat } from './systems/combat.js';
-import { bindPauseControl } from './ui/controls.js';
+import { bindPause, bindBoardInteraction } from './ui/bindings.js';
+import { createLoop } from './core/loop.js';
+import { buildShop, highlightSelected } from './ui/shop-ui.js';
+import { tryPlacePlant } from './systems/placement.js';
 
 let state;
-let loopId;
-let lastTime = 0;
-let isPaused = false;
+const loop = createLoop(dt => gameTick(dt));
+
+/** Track last wave shown to trigger announcements */
+let lastAnnouncedWave = 0;
+let waveToastTimer = 0;
 
 function freshState() {
   const level = LEVELS[levelSelect.value];
+  lastAnnouncedWave = 0;
+  waveToastTimer = 0;
   return initCooldowns(createGameState(levelSelect.value, level), Object.keys(PLANTS));
-}
-
-function buildShop() {
-  const html = Object.entries(PLANTS).map(([k, p]) => `<div class="card" data-plant="${k}"><div class="row"><strong>${p.emoji} ${p.name}</strong><span class="cost">${p.cost} ☀️</span></div><div class="muted">${p.desc}</div><div class="cooldown"></div><div class="cooltxt"></div></div>`).join('');
-  shopEl.innerHTML = html;
-  mobileShopEl.innerHTML = html;
-  [...document.querySelectorAll('.card')].forEach(c => c.addEventListener('click', () => { ensureAudio(); selectPlant(c.dataset.plant); }));
 }
 
 function selectPlant(name) {
   state.selectedPlant = name;
-  [...document.querySelectorAll('.card')].forEach(c => c.classList.toggle('selected', c.dataset.plant === name));
+  highlightSelected(name);
 }
 
 function syncStats() {
@@ -49,23 +49,73 @@ function createBoard() {
 
 function placePlant(r, c) {
   if (state.gameOver) return;
-  const key = cellKey(r, c);
-  const type = state.selectedPlant;
-  const def = PLANTS[type];
-  const actualCost = actualPlantCost(state, type, def);
-  if (state.plants.has(key)) return;
-  if (state.cooldowns[type] > 0) return flash(shopEl);
-  if (state.sun < actualCost) return flash(sunEl);
-  state.sun -= actualCost;
-  state.cooldowns[type] = def.cooldown;
-  state.plants.set(key, { type, row: r, col: c, hp: def.hp, maxHp: def.hp, attackTimer: 0, sunTimer: 0, explodeTimer: 0.8 });
+  const result = tryPlacePlant(state, state.selectedPlant, r, c);
+  if (!result.ok) {
+    if (result.flashTarget === 'sun') flash(sunEl);
+    else if (result.flashTarget === 'shop') flash(shopEl);
+    return;
+  }
   syncStats();
   updateShop(state, PLANTS);
-  sfx(type === 'bomb' ? 'boom' : 'plant');
+  sfx(result.plantType === 'bomb' ? 'boom' : 'plant');
   render();
 }
 
-function updateMowers(dt) {
+/** Show a wave announcement toast */
+function showWaveToast(wave) {
+  let existing = document.getElementById('waveToast');
+  if (!existing) {
+    existing = document.createElement('div');
+    existing.id = 'waveToast';
+    existing.className = 'wave-toast';
+    const wrap = document.querySelector('.board-wrap');
+    if (wrap) wrap.appendChild(existing);
+  }
+  const isBig = wave % 5 === 0;
+  existing.textContent = isBig ? `🌊 第 ${wave} 波 — 大波來襲！` : `🌊 第 ${wave} 波`;
+  existing.classList.add('show');
+  existing.classList.toggle('big', isBig);
+  waveToastTimer = 2.2;
+}
+
+/* ── Update pipeline (explicit phases) ── */
+
+function phaseModifiers(dt) {
+  updateModifiers(state, dt);
+}
+
+function phaseSpawn(dt) {
+  const level = LEVELS[state.levelKey];
+  state.spawnTimer += dt;
+  const spawnEvery = Math.max(level.spawnBase - state.wave * 0.18 + modifierSpawnPenalty(state.modifier), level.spawnMin);
+  if (state.spawnTimer >= spawnEvery) {
+    state.spawnTimer = 0;
+    const burst = state.wave >= level.spawnBurstWave ? 2 : 1;
+    for (let i = 0; i < burst; i++) spawnZombie(state);
+  }
+}
+
+function phaseEconomy(dt) {
+  const level = LEVELS[state.levelKey];
+  state.sunTimer += dt;
+  if (state.sunTimer >= level.sunDrop) {
+    state.sunTimer = 0;
+    const speed = modifierSunSpeed(state.modifier, state.levelKey);
+    addSun(state, Math.random() * (cols * 90 - 50) + 20, 10, 25, speed);
+  }
+}
+
+function phaseCombat(dt) {
+  updatePlantsCombat(state, dt, sfx, addSun, (row, col) => state.plants.delete(`${row}-${col}`));
+  updatePeasCombat(state, dt, sfx);
+  if (!updateZombieCombat(state, dt, sfx, (r, c) => `${r}-${c}`)) {
+    gameEnd(false);
+    return false;
+  }
+  return true;
+}
+
+function phaseMowers(dt) {
   for (const m of state.lawnmowers) {
     if (!m.active) continue;
     m.x += 4.8 * dt;
@@ -74,39 +124,45 @@ function updateMowers(dt) {
   }
 }
 
-function update(dt) {
-  if (state.gameOver) return;
-  const level = LEVELS[state.levelKey];
-  updateModifiers(state, dt);
-  state.spawnTimer += dt;
-  state.sunTimer += dt;
-  const spawnEvery = Math.max(level.spawnBase - state.wave * 0.18 + modifierSpawnPenalty(state.modifier), level.spawnMin);
-  if (state.spawnTimer >= spawnEvery) {
-    state.spawnTimer = 0;
-    const burst = state.wave >= level.spawnBurstWave ? 2 : 1;
-    for (let i = 0; i < burst; i++) spawnZombie(state);
-  }
-  if (state.sunTimer >= level.sunDrop) {
-    state.sunTimer = 0;
-    const speed = modifierSunSpeed(state.modifier, state.levelKey);
-    addSun(state, Math.random() * (cols * 90 - 50) + 20, 10, 25, speed);
-  }
-  updatePlantsCombat(state, dt, sfx, addSun, (row, col) => state.plants.delete(cellKey(row, col)));
-  updatePeasCombat(state, dt, sfx);
-  if (!updateZombieCombat(state, dt, sfx, cellKey)) {
-    gameEnd(false);
-    return;
-  }
-  updateMowers(dt);
+function phaseCleanup(dt) {
   const { killed } = cleanupState(state, dt);
   if (killed > 0) {
     state.kills += killed;
     state.sun += killed * killReward(12, state.modifier);
     syncStats();
   }
+}
+
+function phaseUISync(dt) {
   updateShop(state, PLANTS);
   updateLevelHint(state, levelHintEl);
   updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, state.zombies.length >= 8 ? 'danger' : 'normal');
+
+  // Wave announcement
+  if (state.wave !== lastAnnouncedWave && state.wave > 1) {
+    lastAnnouncedWave = state.wave;
+    showWaveToast(state.wave);
+  }
+  if (waveToastTimer > 0) {
+    waveToastTimer -= dt;
+    if (waveToastTimer <= 0) {
+      const toast = document.getElementById('waveToast');
+      if (toast) toast.classList.remove('show', 'big');
+    }
+  }
+}
+
+/** Main tick — called by the loop every frame with capped dt */
+function gameTick(dt) {
+  if (state.gameOver) return;
+  phaseModifiers(dt);
+  phaseSpawn(dt);
+  phaseEconomy(dt);
+  if (!phaseCombat(dt)) return;
+  phaseMowers(dt);
+  phaseCleanup(dt);
+  phaseUISync(dt);
+  const level = LEVELS[state.levelKey];
   if (state.kills >= level.winKills) gameEnd(true);
 }
 
@@ -122,25 +178,13 @@ function gameEnd(win) {
   sfx(win ? 'win' : 'lose');
 }
 
-function frame(ts) {
-  if (!lastTime) lastTime = ts;
-  const dt = Math.min((ts - lastTime) / 1000, 0.033);
-  lastTime = ts;
-  if (!isPaused) {
-    update(dt);
-    render();
-  }
-  loopId = requestAnimationFrame(frame);
-}
-
 export function startGame() {
-  cancelAnimationFrame(loopId);
+  loop.stop();
   state = freshState();
-  isPaused = false;
+  loop.paused = false;
   pauseBtn.textContent = '暫停';
-  lastTime = 0;
   createBoard();
-  buildShop();
+  buildShop(name => selectPlant(name));
   syncStats();
   selectPlant('peashooter');
   overlayEl.classList.remove('show');
@@ -148,24 +192,15 @@ export function startGame() {
   updateLevelHint(state, levelHintEl);
   updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, 'normal');
   render();
-  loopId = requestAnimationFrame(frame);
+  loop.start();
 }
 
 export function bindGameEvents() {
-  bindPauseControl(pauseBtn, statusTitleEl, statusTextEl, () => isPaused, v => { isPaused = v; });
-  boardEl.addEventListener('pointerdown', e => {
-    const t = e.target.closest('.sun');
-    if (t) {
-      e.preventDefault();
-      e.stopPropagation();
-      ensureAudio();
-      if (collectSun(state, Number(t.dataset.sunId))) {
-        syncStats();
-        updateShop(state, PLANTS);
-        sfx('sun');
-        render();
-      }
-    }
+  bindPause(pauseBtn, statusTitleEl, statusTextEl, () => loop.paused, v => { loop.paused = v; });
+  bindBoardInteraction(() => state, () => {
+    syncStats();
+    updateShop(state, PLANTS);
+    sfx('sun');
+    render();
   });
 }
-

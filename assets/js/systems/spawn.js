@@ -5,6 +5,7 @@ export function zombieKindForWave(w) {
   if (w >= 2) pool.push('cone');
   if (w >= 3) pool.push('paper');
   if (w >= 4) pool.push('fast');
+  if (w >= 5) pool.push('flag');       // Flag zombie signals big wave
   if (w >= 6) pool.push('bucket');
   if (w >= 7) pool.push('splitter');
   if (w >= 9) pool.push('giant');

@@ -21,7 +21,7 @@ export function updateBattleStatus(state, els, kind = 'normal') {
 
   if (kind === 'danger') {
     statusTitleEl.textContent = `第 ${wave} 波：撐住這波`;
-    statusTextEl.textContent = state.wave >= 7 ? '高壓波次開始了，晚點會出帶盾硬殭屍。' : '殭屍密度提高了，先保住前排和經濟。';
+    statusTextEl.textContent = state.wave >= 7 ? '高壓波次開始了，晚點會出帶盾硬殭屍。' : '殭屍密度提高了，注意旗子殭屍代表大波來襲。';
   } else if (state?.modifier === 'solar') {
     statusTitleEl.textContent = `第 ${wave} 波：Solar Flare`;
     statusTextEl.textContent = '陽光掉落變快，向日葵會多噴一點資源。';

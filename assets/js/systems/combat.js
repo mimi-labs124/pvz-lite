@@ -8,6 +8,24 @@ export function triggerBomb(state, plant, sfx) {
   });
 }
 
+/** Chomper: instantly kills the nearest zombie in its row, then chews for a long time */
+function triggerChomp(state, plant, sfx) {
+  const targets = state.zombies
+    .filter(z => z.row === plant.row && z.x >= plant.col - 0.1)
+    .sort((a, b) => a.x - b.x);
+  if (targets.length === 0) return;
+  const victim = targets[0];
+  // Instant-kill non-giant zombies; giants take heavy damage instead
+  if (victim.kind === 'giant') {
+    victim.hp -= 300;
+  } else {
+    victim.hp = -999;
+  }
+  sfx('chomp');
+  plant.chompTimer = 8; // chewing cooldown (seconds)
+  state.booms.push({ row: plant.row, col: plant.col, life: 0.3 }); // visual feedback
+}
+
 export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
   for (const p of [...state.plants.values()]) {
     if (p.type === 'sunflower') {
@@ -52,6 +70,19 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
           state.peas.push({ row, x: p.col + 0.72, damage: idx === 0 ? 16 : 10, speed: 4.6, ice: false, prism: true });
         });
         sfx('pea');
+      }
+    }
+    if (p.type === 'chomper') {
+      // Handle chewing state
+      if (p.chompTimer > 0) {
+        p.chompTimer -= dt;
+        continue; // Can't do anything while chewing
+      }
+      const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1 && z.x < p.col + 1.5);
+      p.attackTimer += dt;
+      if (has && p.attackTimer >= 1.5) {
+        p.attackTimer = 0;
+        triggerChomp(state, p, sfx);
       }
     }
   }
