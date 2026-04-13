@@ -10,18 +10,19 @@ export function updateLevelHint(state, levelHintEl) {
 export function updateBattleStatus(state, els, kind = 'normal') {
   const { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl } = els;
   const wave = state?.wave ?? 1;
-  const modifierName = state?.modifier === 'solar' ? 'Solar Flare' : state?.modifier === 'fog' ? 'Iron Fog' : state?.modifier === 'bloodmoon' ? 'Blood Moon' : '普通日';
+  const modifierName = state?.modifier === 'solar' ? 'Solar Flare' : state?.modifier === 'fog' ? 'Iron Fog' : state?.modifier === 'bloodmoon' ? 'Blood Moon' : state?.modifier === 'hailstorm' ? '❄️ Hailstorm' : '普通日';
   modifierTagEl.textContent = modifierName;
   modifierTagEl.className = `modifier-tag ${state?.modifier ?? 'normal'}`;
-  battleStatusEl.classList.remove('alert', 'danger', 'solar', 'fog', 'bloodmoon');
+  battleStatusEl.classList.remove('alert', 'danger', 'solar', 'fog', 'bloodmoon', 'hailstorm');
   if (state?.modifier === 'solar') battleStatusEl.classList.add('solar');
   if (state?.modifier === 'fog') battleStatusEl.classList.add('fog');
   if (state?.modifier === 'bloodmoon') battleStatusEl.classList.add('bloodmoon');
+  if (state?.modifier === 'hailstorm') battleStatusEl.classList.add('hailstorm');
   if (kind === 'danger') battleStatusEl.classList.add('danger');
 
   if (kind === 'danger') {
     statusTitleEl.textContent = `第 ${wave} 波：撐住這波`;
-    statusTextEl.textContent = state.wave >= 7 ? '高壓波次開始了，晚點會出帶盾硬殭屍。' : '殭屍密度提高了，注意旗子殭屍代表大波來襲。';
+    statusTextEl.textContent = state.wave >= 7 ? '高壓波次開始了，注意帶盾硬殭屍和礦工殭屍。' : '殭屍密度提高了，注意旗子殭屍代表大波來襲。';
   } else if (state?.modifier === 'solar') {
     statusTitleEl.textContent = `第 ${wave} 波：Solar Flare`;
     statusTextEl.textContent = '陽光掉落變快，向日葵會多噴一點資源。';
@@ -30,7 +31,10 @@ export function updateBattleStatus(state, els, kind = 'normal') {
     statusTextEl.textContent = '陽光變慢，向日葵更貴，重輸出與擋線要算準。';
   } else if (state?.modifier === 'bloodmoon') {
     statusTitleEl.textContent = `第 ${wave} 波：Blood Moon`;
-    statusTextEl.textContent = '殭屍加速，但擊殺回更多陽光，撐住就能反打。';
+    statusTextEl.textContent = '殭屍加速，但擊殺回更多但擊殺回更多陽光，撐住就能反打。';
+  } else if (state?.modifier === 'hailstorm') {
+    statusTitleEl.textContent = `第 ${wave} 波：❄️ Hailstorm`;
+    statusTextEl.textContent = '冰雹風暴！植物會被隨機冰傷，快點收掉殭屍。';
   } else {
     statusTitleEl.textContent = `第 ${wave} 波：穩住節奏`;
     statusTextEl.textContent = wave < 3 ? '先把前兩排經濟和輸出鋪起來。' : '觀察冷卻、補線，不要讓單一路崩掉。';

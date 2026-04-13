@@ -1,17 +1,10 @@
-/**
- * systems/placement.js — Plant placement logic
- *
- * Pure game-rule validation + state mutation for placing a plant.
- * No DOM manipulation — only state changes.
- */
-
 import { PLANTS } from '../config.js';
 import { cellKey, flash } from '../core/helpers.js';
 import { actualPlantCost } from './shop.js';
 
 /**
  * Attempt to place a plant on the board.
- * @returns {{ ok: boolean, flashTarget?: string }}  result + hint for flash feedback
+ * @returns {{ ok: boolean, flashTarget?: string, plantType?: string }}
  */
 export function tryPlacePlant(state, plantKey, row, col) {
   const key = cellKey(row, col);
@@ -29,7 +22,24 @@ export function tryPlacePlant(state, plantKey, row, col) {
     type: plantKey, row, col,
     hp: def.hp, maxHp: def.hp,
     attackTimer: 0, sunTimer: 0, explodeTimer: 0.8,
+    chompTimer: 0,
   });
 
   return { ok: true, plantType: plantKey };
+}
+
+/**
+ * Shovel a plant — remove it and refund partial sun.
+ * @returns {{ ok: boolean, refund: number }}
+ */
+export function tryShovelPlant(state, row, col) {
+  const key = cellKey(row, col);
+  const plant = state.plants.get(key);
+  if (!plant) return { ok: false, refund: 0 };
+  const def = PLANTS[plant.type];
+  const refund = Math.floor(def.cost * def.refund);
+  state.sun += refund;
+  state.plants.delete(key);
+  state.shovelUses++;
+  return { ok: true, refund };
 }

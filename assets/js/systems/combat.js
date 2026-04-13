@@ -15,15 +15,24 @@ function triggerChomp(state, plant, sfx) {
     .sort((a, b) => a.x - b.x);
   if (targets.length === 0) return;
   const victim = targets[0];
-  // Instant-kill non-giant zombies; giants take heavy damage instead
   if (victim.kind === 'giant') {
     victim.hp -= 300;
   } else {
     victim.hp = -999;
   }
   sfx('chomp');
-  plant.chompTimer = 8; // chewing cooldown (seconds)
-  state.booms.push({ row: plant.row, col: plant.col, life: 0.3 }); // visual feedback
+  plant.chompTimer = 8;
+  state.booms.push({ row: plant.row, col: plant.col, life: 0.3 });
+}
+
+/** Check if a pea should be ignited by a Torchwood in the same row/col */
+function checkTorchwood(state, pea) {
+  for (const p of state.plants.values()) {
+    if (p.type === 'torchwood' && p.row === pea.row && p.col === pea.col && !pea.fire) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
@@ -37,7 +46,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
       }
     }
     if (['peashooter', 'repeater', 'icepea', 'gambler'].includes(p.type)) {
-      const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1);
+      const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1 && !z.digger);
       p.attackTimer += dt;
       const rate = p.type === 'repeater' ? 0.9 : p.type === 'gambler' ? 1.35 : 1.1;
       if (has && p.attackTimer >= rate) {
@@ -45,10 +54,12 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
         if (p.type === 'gambler') {
           const roll = Math.random();
           const damage = roll > 0.9 ? 55 : roll < 0.2 ? 6 : 24 + Math.floor(Math.random() * 14);
-          state.peas.push({ row: p.row, x: p.col + 0.72, damage, speed: 4.8, ice: false, gambler: true, crit: roll > 0.9, weak: roll < 0.2 });
+          state.peas.push({ row: p.row, x: p.col + 0.72, damage, speed: 4.8, ice: false, gambler: true, crit: roll > 0.9, weak: roll < 0.2, fire: false });
         } else {
           const shots = p.type === 'repeater' ? 2 : 1;
-          for (let i = 0; i < shots; i++) state.peas.push({ row: p.row, x: p.col + 0.72 - i * 0.12, damage: p.type === 'icepea' ? 18 : 20, speed: 4.8, ice: p.type === 'icepea' });
+          for (let i = 0; i < shots; i++) {
+            state.peas.push({ row: p.row, x: p.col + 0.72 - i * 0.12, damage: p.type === 'icepea' ? 18 : 20, speed: 4.8, ice: p.type === 'icepea', fire: false });
+          }
         }
         sfx(p.type === 'icepea' ? 'ice' : 'pea');
       }
@@ -62,37 +73,53 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
     }
     if (p.type === 'prism') {
       const targetRows = [p.row, Math.max(0, p.row - 1), Math.min(rows - 1, p.row + 1)];
-      const hasTarget = state.zombies.some(z => targetRows.includes(z.row) && z.x >= p.col - 0.1);
+      const hasTarget = state.zombies.some(z => targetRows.includes(z.row) && z.x >= p.col - 0.1 && !z.digger);
       p.attackTimer += dt;
       if (hasTarget && p.attackTimer >= 1.25) {
         p.attackTimer = 0;
         targetRows.forEach((row, idx) => {
-          state.peas.push({ row, x: p.col + 0.72, damage: idx === 0 ? 16 : 10, speed: 4.6, ice: false, prism: true });
+          state.peas.push({ row, x: p.col + 0.72, damage: idx === 0 ? 16 : 10, speed: 4.6, ice: false, prism: true, fire: false });
         });
         sfx('pea');
       }
     }
     if (p.type === 'chomper') {
-      // Handle chewing state
       if (p.chompTimer > 0) {
         p.chompTimer -= dt;
-        continue; // Can't do anything while chewing
+        continue;
       }
-      const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1 && z.x < p.col + 1.5);
+      const has = state.zombies.some(z => z.row === p.row && z.x >= p.col - 0.1 && z.x < p.col + 1.5 && !z.digger);
       p.attackTimer += dt;
       if (has && p.attackTimer >= 1.5) {
         p.attackTimer = 0;
         triggerChomp(state, p, sfx);
       }
     }
+    // Torchwood is passive — it transforms peas that pass through it
+    // (handled in updatePeasCombat)
   }
 }
 
 export function updatePeasCombat(state, dt, sfx) {
   state.peas.forEach(p => p.x += p.speed * dt);
+
+  // Torchwood check: if a pea passes through a torchwood cell, ignite it
+  for (const pea of state.peas) {
+    if (pea.fire || pea.ice) continue; // Already fire or ice
+    const peaCol = Math.round(pea.x - 0.72);
+    for (const plant of state.plants.values()) {
+      if (plant.type === 'torchwood' && plant.row === pea.row && plant.col === peaCol) {
+        pea.fire = true;
+        pea.damage *= 2;
+        sfx('ignite');
+        break;
+      }
+    }
+  }
+
   state.peas = state.peas.filter(p => p.x < cols + 0.4);
   for (const pea of state.peas) {
-    const hit = state.zombies.find(z => z.row === pea.row && Math.abs(z.x - pea.x) < 0.28);
+    const hit = state.zombies.find(z => z.row === pea.row && Math.abs(z.x - pea.x) < 0.28 && !z.digger);
     if (hit) {
       if (hit.shield) {
         hit.shield = false;
@@ -100,9 +127,17 @@ export function updatePeasCombat(state, dt, sfx) {
       } else {
         hit.hp -= pea.damage;
       }
+      // Fire pea splash: damage adjacent zombies
+      if (pea.fire) {
+        state.zombies.forEach(z => {
+          if (z !== hit && z.row === pea.row && Math.abs(z.x - pea.x) < 0.7) {
+            z.hp -= Math.floor(pea.damage * 0.4);
+          }
+        });
+      }
       if (pea.ice) hit.slowTimer = 2.8;
       pea.x = 999;
-      sfx('hit');
+      sfx(pea.fire ? 'fire_hit' : 'hit');
     }
   }
   state.peas = state.peas.filter(p => p.x < cols + 1);
@@ -110,6 +145,17 @@ export function updatePeasCombat(state, dt, sfx) {
 
 export function updateZombieCombat(state, dt, sfx, cellKey) {
   for (const z of state.zombies) {
+    // Digger zombie: underground phase
+    if (z.digger && z.digTimer > 0) {
+      z.digTimer -= dt;
+      if (z.digTimer <= 0) {
+        // Surface! Place at the dig surface column, appearing from left
+        z.x = z.digSurfaceCol + 0.5;
+        z.digTimer = 0; // Mark as surfaced
+      }
+      continue; // Underground — can't be hit, can't bite
+    }
+
     if (z.kind === 'paper' && !z.angry && z.hp < z.maxHp * 0.45) z.angry = true, z.speed *= 1.9;
     if (z.slowTimer > 0) z.slowTimer -= dt;
     const bloodBoost = state.modifier === 'bloodmoon' ? 1.18 : 1;

@@ -2,7 +2,7 @@ import { rows, cols, LEVELS, PLANTS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
 import { boardEl, sunEl, killsEl, waveEl, mowerEl, levelHintEl, levelSelect, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl, pauseBtn, shopEl } from './dom.js';
 import { updateLevelHint, updateBattleStatus } from './systems/status.js';
-import { spawnZombie } from './systems/spawn.js';
+import { spawnZombie, spawnFlagWave } from './systems/spawn.js';
 import { updateShop } from './systems/shop.js';
 import { createGameState, initCooldowns } from './core/state.js';
 import { flash } from './core/helpers.js';
@@ -15,12 +15,11 @@ import { updatePlantsCombat, updatePeasCombat, updateZombieCombat } from './syst
 import { bindPause, bindBoardInteraction } from './ui/bindings.js';
 import { createLoop } from './core/loop.js';
 import { buildShop, highlightSelected } from './ui/shop-ui.js';
-import { tryPlacePlant } from './systems/placement.js';
+import { tryPlacePlant, tryShovelPlant } from './systems/placement.js';
+import { checkAchievements, showAchievementToast, loadRecords, saveRecord } from './systems/achievements.js';
 
 let state;
 const loop = createLoop(dt => gameTick(dt));
-
-/** Track last wave shown to trigger announcements */
 let lastAnnouncedWave = 0;
 let waveToastTimer = 0;
 
@@ -33,7 +32,19 @@ function freshState() {
 
 function selectPlant(name) {
   state.selectedPlant = name;
+  state.shovelMode = false;
   highlightSelected(name);
+  updateShovelBtn();
+}
+
+function toggleShovel() {
+  state.shovelMode = !state.shovelMode;
+  updateShovelBtn();
+}
+
+function updateShovelBtn() {
+  const btn = document.getElementById('shovelBtn');
+  if (btn) btn.classList.toggle('active', state.shovelMode);
 }
 
 function syncStats() {
@@ -41,10 +52,28 @@ function syncStats() {
   killsEl.textContent = state.kills;
   waveEl.textContent = state.wave;
   mowerEl.textContent = state.lawnmowers.filter(m => !m.used).length;
+  // Combo display
+  let comboEl = document.getElementById('comboDisplay');
+  if (!comboEl) {
+    comboEl = document.createElement('div');
+    comboEl.id = 'comboDisplay';
+    comboEl.className = 'combo-display';
+    const statsEl = document.querySelector('.stats');
+    if (statsEl) statsEl.appendChild(comboEl);
+  }
+  comboEl.textContent = state.combo >= 2 ? `🔥 ${state.combo}x` : '';
+  comboEl.classList.toggle('show', state.combo >= 2);
 }
 
 function createBoard() {
-  makeBoard(boardEl, rows, cols, (r, c) => { ensureAudio(); placePlant(r, c); });
+  makeBoard(boardEl, rows, cols, (r, c) => {
+    ensureAudio();
+    if (state.shovelMode) {
+      handleShovel(r, c);
+    } else {
+      placePlant(r, c);
+    }
+  });
 }
 
 function placePlant(r, c) {
@@ -58,6 +87,16 @@ function placePlant(r, c) {
   syncStats();
   updateShop(state, PLANTS);
   sfx(result.plantType === 'bomb' ? 'boom' : 'plant');
+  render();
+}
+
+function handleShovel(r, c) {
+  if (state.gameOver) return;
+  const result = tryShovelPlant(state, r, c);
+  if (!result.ok) return;
+  sfx('shovel');
+  syncStats();
+  updateShop(state, PLANTS);
   render();
 }
 
@@ -91,7 +130,9 @@ function phaseSpawn(dt) {
   if (state.spawnTimer >= spawnEvery) {
     state.spawnTimer = 0;
     const burst = state.wave >= level.spawnBurstWave ? 2 : 1;
-    for (let i = 0; i < burst; i++) spawnZombie(state);
+    for (let i = 0; i < burst; i++) {
+      spawnZombie(state);
+    }
   }
 }
 
@@ -128,8 +169,18 @@ function phaseCleanup(dt) {
   const { killed } = cleanupState(state, dt);
   if (killed > 0) {
     state.kills += killed;
-    state.sun += killed * killReward(12, state.modifier);
+    // Combo bonus: extra sun for combo streaks
+    const comboBonus = state.combo >= 10 ? 5 : state.combo >= 5 ? 3 : state.combo >= 3 ? 1 : 0;
+    state.sun += killed * killReward(12, state.modifier) + comboBonus;
+    if (comboBonus > 0) sfx('combo');
     syncStats();
+  }
+}
+
+function phaseAchievements() {
+  const newAch = checkAchievements(state);
+  for (const ach of newAch) {
+    showAchievementToast(ach);
   }
 }
 
@@ -142,6 +193,10 @@ function phaseUISync(dt) {
   if (state.wave !== lastAnnouncedWave && state.wave > 1) {
     lastAnnouncedWave = state.wave;
     showWaveToast(state.wave);
+    // Flag zombie triggers extra spawns on big waves
+    if (state.wave % 5 === 0) {
+      spawnFlagWave(state);
+    }
   }
   if (waveToastTimer > 0) {
     waveToastTimer -= dt;
@@ -149,6 +204,28 @@ function phaseUISync(dt) {
       const toast = document.getElementById('waveToast');
       if (toast) toast.classList.remove('show', 'big');
     }
+  }
+
+  // Best record display
+  updateBestRecord();
+}
+
+/** Show best record in overlay area */
+function updateBestRecord() {
+  let recEl = document.getElementById('bestRecord');
+  if (!recEl) {
+    recEl = document.createElement('div');
+    recEl.id = 'bestRecord';
+    recEl.className = 'best-record muted';
+    const statsEl = document.querySelector('.stats');
+    if (statsEl) statsEl.insertBefore(recEl, statsEl.firstChild);
+  }
+  const records = loadRecords();
+  const key = state.levelKey;
+  if (records[key]) {
+    recEl.textContent = `🏆 ${records[key].kills}殺/${records[key].wave}波`;
+  } else {
+    recEl.textContent = '';
   }
 }
 
@@ -161,6 +238,7 @@ function gameTick(dt) {
   if (!phaseCombat(dt)) return;
   phaseMowers(dt);
   phaseCleanup(dt);
+  phaseAchievements();
   phaseUISync(dt);
   const level = LEVELS[state.levelKey];
   if (state.kills >= level.winKills) gameEnd(true);
@@ -172,9 +250,22 @@ function render() {
 
 function gameEnd(win) {
   state.gameOver = true;
+  if (win) {
+    if (state.levelKey === 'normal') state.wonNormal = true;
+    if (state.levelKey === 'hard') state.wonHard = true;
+    if (state.levelKey === 'survival') state.wonSurvival = true;
+  }
+  // Check achievements one last time
+  phaseAchievements();
+  // Save record
+  saveRecord(state.levelKey, state.kills, state.wave, state.maxCombo);
+
   overlayEl.classList.add('show');
   endTitleEl.textContent = win ? '你贏了！' : '殭屍進家門了';
-  endTextEl.textContent = win ? `通關 ${levelSelect.options[levelSelect.selectedIndex].text}，擊殺 ${state.kills} 隻，打到第 ${state.wave} 波。` : `你撐到第 ${state.wave} 波，擊殺 ${state.kills} 隻。`;
+  const comboStr = state.maxCombo >= 3 ? ` | 最高 ${state.maxCombo}x 連殺` : '';
+  endTextEl.textContent = win
+    ? `通關 ${levelSelect.options[levelSelect.selectedIndex].text}，擊殺 ${state.kills} 隻，打到第 ${state.wave} 波${comboStr}。`
+    : `你撐到第 ${state.wave} 波，擊殺 ${state.kills} 隻${comboStr}。`;
   sfx(win ? 'win' : 'lose');
 }
 
@@ -203,4 +294,13 @@ export function bindGameEvents() {
     sfx('sun');
     render();
   });
+
+  // Shovel button
+  const shovelBtn = document.getElementById('shovelBtn');
+  if (shovelBtn) {
+    shovelBtn.addEventListener('click', () => {
+      ensureAudio();
+      toggleShovel();
+    });
+  }
 }

@@ -7,6 +7,8 @@ export function createGameState(levelKey, level) {
     kills: 0,
     wave: 1,
     selectedPlant: 'peashooter',
+    shovelMode: false,
+    shovelUses: 0,
     plants: new Map(),
     zombies: [],
     peas: [],
@@ -22,6 +24,15 @@ export function createGameState(levelKey, level) {
     modifier: 'normal',
     modifierTimer: 0,
     modifierWave: 0,
+    // Combo / streak system
+    combo: 0,
+    comboTimer: 0,
+    maxCombo: 0,
+    // Achievement tracking (per-run)
+    unlockedAchievements: new Set(),
+    wonNormal: false,
+    wonHard: false,
+    wonSurvival: false,
   };
 }
 

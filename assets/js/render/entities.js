@@ -9,17 +9,23 @@ export function renderEntities(boardEl, state) {
     if (!cell) continue;
     const el = document.createElement('div');
     const isChomping = p.type === 'chomper' && p.chompTimer > 0;
-    el.className = `plant ${p.type}${isChomping ? ' chewing' : ''}`;
+    const isTorch = p.type === 'torchwood';
+    el.className = `plant ${p.type}${isChomping ? ' chewing' : ''}${isTorch ? ' torch-glow' : ''}`;
     el.innerHTML = `${PLANTS[p.type].emoji}<div class="hp"><i style="width:${Math.max(0, p.hp / p.maxHp * 100)}%"></i></div>`;
     cell.appendChild(el);
   }
 
   for (const z of state.zombies) {
     const el = document.createElement('div');
-    el.className = `zombie ${ZOMBIES[z.kind].className}${z.angry ? ' angry' : ''}`;
+    const isUnderground = z.digger && z.digTimer > 0;
+    el.className = `zombie ${ZOMBIES[z.kind].className}${z.angry ? ' angry' : ''}${isUnderground ? ' underground' : ''}`;
     el.style.left = `${z.x * 95 + 4}px`;
     el.style.top = `${z.row * 100 + (z.kind === 'giant' ? 2 : 10)}px`;
-    const icon = z.kind === 'splitter' ? '🪓' : z.mini ? '🧟‍♂️' : z.shield ? `${ZOMBIES[z.kind].emoji}🛡️` : ZOMBIES[z.kind].emoji;
+    if (isUnderground) {
+      el.style.opacity = '0.3';
+      el.style.filter = 'blur(2px)';
+    }
+    const icon = z.kind === 'digger' && !isUnderground ? '⛏️🧟' : z.kind === 'splitter' ? '🪓' : z.mini ? '🧟‍♂️' : z.shield ? `${ZOMBIES[z.kind].emoji}🛡️` : ZOMBIES[z.kind].emoji;
     el.innerHTML = `${icon}<div class="hp"><i style="width:${Math.max(0, z.hp / z.maxHp * 100)}%"></i></div>`;
     if (z.slowTimer > 0) el.style.outline = '2px solid rgba(56,189,248,.55)';
     boardEl.appendChild(el);
@@ -27,7 +33,7 @@ export function renderEntities(boardEl, state) {
 
   for (const p of state.peas) {
     const el = document.createElement('div');
-    el.className = `pea${p.ice ? ' ice' : ''}${p.prism ? ' prism' : ''}${p.gambler ? ' prism' : ''}`;
+    el.className = `pea${p.ice ? ' ice' : ''}${p.prism ? ' prism' : ''}${p.gambler ? ' prism' : ''}${p.fire ? ' fire' : ''}`;
     el.style.left = `${p.x * 95 + 20}px`;
     el.style.top = `${p.row * 100 + 10}px`;
     boardEl.appendChild(el);

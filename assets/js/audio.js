@@ -29,8 +29,13 @@ export function sfx(name) {
   if (name === 'pea') beep(700, 0.03, 'square', 0.03);
   if (name === 'ice') beep(560, 0.05, 'triangle', 0.04);
   if (name === 'hit') beep(180, 0.06, 'sawtooth', 0.04);
+  if (name === 'fire_hit') beep(220, 0.08, 'sawtooth', 0.05);
   if (name === 'boom') beep(130, 0.16, 'sawtooth', 0.08);
   if (name === 'chomp') { beep(320, 0.04, 'sawtooth', 0.06); setTimeout(() => beep(220, 0.08, 'sawtooth', 0.05), 50); }
+  if (name === 'ignite') { beep(600, 0.04, 'square', 0.04); setTimeout(() => beep(900, 0.06, 'sawtooth', 0.04), 30); }
+  if (name === 'shovel') beep(350, 0.08, 'triangle', 0.05);
+  if (name === 'achievement') { beep(784, 0.08, 'triangle', 0.07); setTimeout(() => beep(988, 0.08, 'triangle', 0.07), 80); setTimeout(() => beep(1174, 0.12, 'triangle', 0.06), 160); }
+  if (name === 'combo') beep(1046, 0.04, 'square', 0.04);
   if (name === 'mower') beep(260, 0.08, 'square', 0.07);
   if (name === 'lose') beep(180, 0.18, 'sawtooth', 0.07);
   if (name === 'win') { beep(523, 0.08, 'triangle', 0.07); setTimeout(() => beep(659, 0.08, 'triangle', 0.07), 90); }
