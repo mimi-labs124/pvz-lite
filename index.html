@@ -25,6 +25,11 @@
  <button id="speedBtn" class="speed-btn" title="遊戲速度">⏩ 加速</button>
  <button id="pauseBtn">暫停</button>
  <button id="restartBtn">🔄 重新開始</button>
+ <select id="difficultySelect" class="diff-select" title="難度">
+ <option value="easy">簡單</option>
+ <option value="normal" selected>普通</option>
+ <option value="hard">困難</option>
+ </select>
     </div>
   </div>
 
@@ -41,18 +46,18 @@
         <div id="spellBar" class="spell-bar"></div>
       </div>
 
-      <div class="section">
-        <div class="section-title">📈 XP 進度</div>
-        <div id="xpBar" class="xp-bar"></div>
-      </div>
+ <div class="section">
+ <div class="section-title">🌱 場上植物</div>
+ <div id="plantInfoPanel" class="plant-info-panel"></div>
+ </div>
 
-      <!-- ── Chaos Awakening: 領土控制 ── -->
-      <div class="section">
-        <div class="section-title">🗡️ 領土</div>
-        <div id="frontlineInfo" class="muted" style="margin-bottom:6px;">前線：第 5 列 | 佔領：0 格</div>
-        <button id="conquestBtn" class="conquest-btn">🗡️ 佔領</button>
-        <div class="muted" style="margin-top:4px;">點擊前線下一列的格子來佔領</div>
-      </div>
+ <!-- ── Chaos Awakening: 領土控制 ── -->
+ <div class="section">
+ <div class="section-title">🗡️ 領土</div>
+ <div id="frontlineInfo" class="muted" style="margin-bottom:6px;">前線：第 5 列 | 佔領：0 格</div>
+ <button id="conquestBtn" class="conquest-btn">🗡️ 佔領</button>
+ <div class="muted" style="margin-top:4px; font-size:11px;">點特殊地形格佔領 • 殭屍會奪回！</div>
+ </div>
 
       <!-- ── Chaos Awakening: 遺物顯示 ── -->
       <div class="section">

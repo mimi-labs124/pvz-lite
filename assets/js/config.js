@@ -21,7 +21,7 @@ export const PLANTS = {
   oracle:      { name: '預言菇', emoji: '🔮', cost: 250, hp: 70,  cooldown: 15, desc: '凍結全排',   tier: 3 },
  magnet: { name: '磁力菇', emoji: '🧲', cost: 175, hp: 85, cooldown: 10, desc: '吸走殭屍防具', tier: 2 },
  melon: { name: '西瓜投手', emoji: '🍉', cost: 300, hp: 100, cooldown: 10, desc: '拋物線濺射3×3', tier: 3 },
- spikeweed: { name: '地刺', emoji: '🌿', cost: 100, hp: 60, cooldown: 5, desc: '地面持續傷害', tier: 1 },
+ spikeweed: { name: '地刺', emoji: '🌵', cost: 100, hp: 60, cooldown: 5, desc: '地面持續傷害', tier: 1 },
 };
 
 // ── 殭屍定義 ──────────────────────────────────
@@ -72,8 +72,8 @@ export const EVOLUTIONS = {
  3: { name: '黑洞磁菇', emoji: '🧲', bonusHp: 40, magnetRange: 3, magnetDamage: true } },
  melon: { 2: { name: '冰西瓜', emoji: '🍉', bonusDmg: 12, splashRows: 2 },
  3: { name: '末日西瓜', emoji: '🍉', bonusDmg: 25, splashRows: 3, freezeSplash: true } },
- spikeweed: { 2: { name: '鐵地刺', emoji: '🌿', bonusDmg: 6, slowOnHit: true },
- 3: { name: '毀滅地刺', emoji: '🌿', bonusDmg: 14, slowOnHit: true, armorBreak: true } },
+ spikeweed: { 2: { name: '鐵地刺', emoji: '🌵', bonusDmg: 6, slowOnHit: true },
+ 3: { name: '毀滅地刺', emoji: '🌵', bonusDmg: 14, slowOnHit: true, armorBreak: true } },
 };
 
 // ── XP 需求 (每級所需總 XP) ───────────────────
@@ -164,3 +164,34 @@ export function zombiesPerWave(wave, isBoss) {
 
 // ── 殺敵目標 (每波需要清完才算過關) ─────────────
 export const WAVE_KILL_TARGET_BASE = 8; // 每波基礎目標
+
+// ── 難度設定 ──────────────────────────────────
+export const DIFFICULTY = {
+ easy: {
+ name: '簡單',
+ startSun: 200,
+ sunMultiplier: 1.3,
+ zombieHpScale: 0.7,
+ zombieSpeedScale: 0.85,
+ zombieCountScale: 0.7,
+ biteScale: 0.75,
+ },
+ normal: {
+ name: '普通',
+ startSun: 100,
+ sunMultiplier: 1.0,
+ zombieHpScale: 1.0,
+ zombieSpeedScale: 1.0,
+ zombieCountScale: 1.0,
+ biteScale: 1.0,
+ },
+ hard: {
+ name: '困難',
+ startSun: 75,
+ sunMultiplier: 0.8,
+ zombieHpScale: 1.5,
+ zombieSpeedScale: 1.15,
+ zombieCountScale: 1.3,
+ biteScale: 1.25,
+ },
+};

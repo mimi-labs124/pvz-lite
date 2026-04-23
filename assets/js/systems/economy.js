@@ -1,10 +1,11 @@
 import { isChaosActive } from './chaos.js';
 
 export function addSun(state, x, y, val = 25, fall = 0.6) {
-  const incomeBuff = 1 + (state.globalBuffs.sunIncome || 0);
-  const tsunamiMult = (state.chaosHarnessed && state.harnessEffect?.type === 'tsunami') ? (state.harnessEffect.multiplier || 1) : 1;
-  const sunValue = Math.round(val * incomeBuff * tsunamiMult);
-  state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: sunValue, life: 10, fall });
+ const diffMul = state.sunMultiplier || 1;
+ const incomeBuff = 1 + (state.globalBuffs.sunIncome || 0);
+ const tsunamiMult = (state.chaosHarnessed && state.harnessEffect?.type === 'tsunami') ? (state.harnessEffect.multiplier || 1) : 1;
+ const sunValue = Math.round(val * incomeBuff * tsunamiMult * diffMul);
+ state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: sunValue, life: 10, fall });
 }
 
 export function collectSun(state, id) {

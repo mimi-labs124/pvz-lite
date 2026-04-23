@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════
 // Combat System — 含進化加成與混亂效果
 // ═══════════════════════════════════════════════
-import { rows, cols, ZOMBIES } from '../config.js';
+import { rows, cols, ZOMBIES, DIFFICULTY } from '../config.js';
 import { getEvolutionBonus } from './evolution.js';
 import { isChaosActive } from './chaos.js';
 import { TERRAIN_TYPES } from './territory.js';
@@ -396,10 +396,12 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
 
     // 咬植物
     if (plant) {
-      z.biteTimer += dt;
-      if (z.biteTimer >= 0.7) {
-        z.biteTimer = 0;
-        const biteDmg = z.biteDmg || ZOMBIES[z.kind]?.bite || 18;
+ z.biteTimer += dt;
+ if (z.biteTimer >= 0.7) {
+ z.biteTimer = 0;
+ const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+ const biteScale = diff.biteScale || 1;
+ const biteDmg = Math.round((z.biteDmg || ZOMBIES[z.kind]?.bite || 18) * biteScale);
         if (state.shieldTimer <= 0) {
           plant.hp -= biteDmg;
           if (plant.hp <= 0) state.plants.delete(plantKey);
@@ -413,16 +415,36 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  } else if (!z.frozen) {
  z.x -= eff * dt;
 
- // ── 毒沼效果：經過佔領的毒沼格時減速+受傷 ──
+ // ── 地形效果（雙向：佔領 vs 未佔領） ──
  if (state.territory) {
  const col = Math.round(z.x);
  const key = `${z.row}-${col}`;
- if (state.territory.conquered.has(key)) {
  const terrainId = state.territory.terrain?.[key];
  const terrain = TERRAIN_TYPES[terrainId];
+ const conquered = state.territory.conquered.has(key);
+
+ if (conquered) {
+ // 植物佔領的地形 → 對殭屍有害
  if (terrain?.poisonSlow) {
  z.slowTimer = Math.max(z.slowTimer || 0, 1.0);
  z.hp -= (terrain.poisonDps || 0) * dt;
+ }
+ // 聖壇：佔領後殭屍在該格受到額外傷害
+ if (terrain?.id === 'altar') {
+ z.hp -= 3 * dt;
+ }
+ } else if (terrain) {
+ // 未佔領的地形 → 殭屍受益（前期難度平衡：只在高波次生效）
+ if (state.wave >= 4) {
+ if (terrain.id === 'speed_lane') {
+ // 加速帶：殭屍加速
+ z.slowTimer = 0; // 清除緩速
+ eff *= 1.12;
+ }
+ if (terrain.id === 'fortress') {
+ // 堡壘：殭屍回血
+ z.hp = Math.min(z.maxHp, z.hp + 2 * dt);
+ }
  }
  }
  }

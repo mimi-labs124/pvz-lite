@@ -100,6 +100,9 @@ export function createRunState() {
  shovelMode: false, // 是否正在鏟子模式
  upgradeCount: 0, // 陽光升級次數
  gameSpeed: 1, // 遊戲速度 1x/1.5x/2x
+ difficulty: 'normal', // 難度設定
+ sunMultiplier: 1, // 陽光乘數（由難度決定）
+ autoSunTimer: 0, // 自動收集計時器
 
     // ── 遊戲結束 ──
     gameOver: false,

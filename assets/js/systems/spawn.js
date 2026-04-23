@@ -1,13 +1,16 @@
-import { rows, cols, ZOMBIES, BOSS_WAVES, zombieKindForWave, zombiesPerWave } from '../config.js';
+import { rows, cols, ZOMBIES, BOSS_WAVES, zombieKindForWave, zombiesPerWave, DIFFICULTY } from '../config.js';
 
 export function startWaveSpawns(state) {
-  const wave = state.wave;
-  const isBoss = wave % 5 === 0;
-  state.isBossWave = isBoss;
+ const wave = state.wave;
+ const isBoss = wave % 5 === 0;
+ state.isBossWave = isBoss;
 
-  const count = zombiesPerWave(wave, isBoss);
-  state.waveKillTarget = count;
-  state.waveKills = 0;
+ const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+ const countScale = diff.zombieCountScale || 1;
+ const baseCount = zombiesPerWave(wave, isBoss);
+ const count = Math.max(3, Math.round(baseCount * countScale));
+ state.waveKillTarget = count;
+ state.waveKills = 0;
   state.waveZombiesRemaining = count;
 
   // 建立出怪隊列
@@ -63,16 +66,19 @@ function spawnZombieFromQueue(state, spawn) {
       biteDmg: config.bossBite,
     });
   } else {
-    const base = ZOMBIES[kind];
-    if (!base) return;
-    const hpScale = 1 + (state.wave - 1) * 0.14;
-    const shield = kind === 'bucket' && state.wave >= 7;
-    const zombie = {
-      id: state.nextZombieId++, kind, row, x: cols - 0.1,
-      hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
-      speed: base.speed, biteTimer: 0, slowTimer: 0,
-      angry: false, shield, biteDmg: base.bite,
-    };
+ const base = ZOMBIES[kind];
+ if (!base) return;
+ const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+ const baseHpScale = 1 + (state.wave - 1) * 0.14;
+ const hpScale = baseHpScale * (diff.zombieHpScale || 1);
+ const speedScale = diff.zombieSpeedScale || 1;
+ const shield = kind === 'bucket' && state.wave >= 7;
+ const zombie = {
+ id: state.nextZombieId++, kind, row, x: cols - 0.1,
+ hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
+ speed: base.speed * speedScale, biteTimer: 0, slowTimer: 0,
+ angry: false, shield, biteDmg: base.bite,
+ };
     // Armored zombie gets extra shield HP
     if (kind === 'armored') {
       zombie.armorHp = 150;
@@ -84,15 +90,19 @@ function spawnZombieFromQueue(state, spawn) {
 // 殘餘殭屍自動出怪（防呆：如果隊列空了但殭屍不夠）
 export function spawnFallback(state) {
   if (state.spawnQueue.length === 0 && state.zombies.length < 2 && !state.draftPhase) {
-    const kind = zombieKindForWave(state.wave);
-    const row = Math.floor(Math.random() * rows);
-    const base = ZOMBIES[kind];
-    if (base) {
-      state.zombies.push({
-        id: state.nextZombieId++, kind, row, x: cols - 0.1,
-        hp: base.hp, maxHp: base.hp, speed: base.speed,
-        biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: base.bite,
-      });
+ const kind = zombieKindForWave(state.wave);
+ const row = Math.floor(Math.random() * rows);
+ const base = ZOMBIES[kind];
+ if (base) {
+ const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+ const hpScale = (1 + (state.wave - 1) * 0.14) * (diff.zombieHpScale || 1);
+ const speedScale = diff.zombieSpeedScale || 1;
+ state.zombies.push({
+ id: state.nextZombieId++, kind, row, x: cols - 0.1,
+ hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
+ speed: base.speed * speedScale,
+ biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: base.bite,
+ });
     }
   }
 }
