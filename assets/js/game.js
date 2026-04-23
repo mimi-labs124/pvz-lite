@@ -665,19 +665,19 @@ function applyTerritoryVisuals() {
     cell.classList.toggle('conquered', isConqueredCell(state, r, c));
     cell.classList.toggle('frontline', c === state.territory.frontline);
 
-    // 地形標記
-    const terrain = getCellTerrain(state, r, c);
-    const oldTerrainEl = cell.querySelector('.terrain-marker');
-    if (terrain && !isCellPlayable(state, c)) {
-      // 還沒佔領的地形格 — 顯示地形預覽
-      if (!oldTerrainEl) {
-        const marker = document.createElement('div');
-        marker.className = 'terrain-marker';
-        marker.textContent = terrain.emoji;
-        marker.title = `${terrain.name}：${terrain.desc}`;
-        cell.appendChild(marker);
-      }
-    } else if (terrain && isConqueredCell(state, r, c)) {
+ // 地形標記
+ const terrain = getCellTerrain(state, r, c);
+ const oldTerrainEl = cell.querySelector('.terrain-marker');
+ if (terrain && !isConqueredCell(state, r, c)) {
+ // 未佔領的地形格 — 顯示地形預覽（不論是否已開放）
+ if (!oldTerrainEl) {
+ const marker = document.createElement('div');
+ marker.className = 'terrain-marker';
+ marker.textContent = terrain.emoji;
+ marker.title = `${terrain.name}：${terrain.desc}`;
+ cell.appendChild(marker);
+ }
+ } else if (terrain && isConqueredCell(state, r, c)) {
       // 已佔領的地形格
       if (oldTerrainEl) oldTerrainEl.remove();
       cell.style.background = terrain.color;
