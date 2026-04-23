@@ -18,7 +18,10 @@ export const PLANTS = {
   firepea:     { name: '火焰豌豆', emoji: '🔥', cost: 200, hp: 105, cooldown: 8,  desc: '穿透濺射',   tier: 3 },
   shadowvine:  { name: '暗影藤',   emoji: '🖤', cost: 220, hp: 90,  cooldown: 9,  desc: '偷取殭屍血量', tier: 3 },
   thornwall:   { name: '荊棘牆',   emoji: '🦔', cost: 160, hp: 500, cooldown: 12, desc: '反傷近戰',   tier: 3 },
-  oracle:      { name: '預言菇',   emoji: '🔮', cost: 250, hp: 70,  cooldown: 15, desc: '凍結全排',   tier: 3 },
+  oracle:      { name: '預言菇', emoji: '🔮', cost: 250, hp: 70,  cooldown: 15, desc: '凍結全排',   tier: 3 },
+ magnet: { name: '磁力菇', emoji: '🧲', cost: 175, hp: 85, cooldown: 10, desc: '吸走殭屍防具', tier: 2 },
+ melon: { name: '西瓜投手', emoji: '🍉', cost: 300, hp: 100, cooldown: 10, desc: '拋物線濺射3×3', tier: 3 },
+ spikeweed: { name: '地刺', emoji: '🌿', cost: 100, hp: 60, cooldown: 5, desc: '地面持續傷害', tier: 1 },
 };
 
 // ── 殭屍定義 ──────────────────────────────────
@@ -34,6 +37,9 @@ export const ZOMBIES = {
   healer:   { emoji: '💉', hp: 150, speed: 0.13, reward: 35, bite: 14, className: 'healer' },
   necro:    { emoji: '💀', hp: 260, speed: 0.15, reward: 45, bite: 26, className: 'necro' },
   boss:     { emoji: '👾', hp: 2500,speed: 0.09, reward: 120,bite: 65, className: 'boss' },
+ armored: { emoji: '🛡️', hp: 350, speed: 0.13, reward: 40, bite: 28, className: 'armored' },
+ dancer: { emoji: '💃', hp: 220, speed: 0.15, reward: 35, bite: 24, className: 'dancer' },
+ backup: { emoji: '🕺', hp: 70, speed: 0.22, reward: 12, bite: 14, className: 'backup' },
 };
 
 // ── 植物進化路線 ──────────────────────────────
@@ -62,6 +68,12 @@ export const EVOLUTIONS = {
                   3: { name: '地獄荊棘', emoji: '🦔', bonusReflect: 18, bonusHp: 400, thornShot: true } },
   oracle:      { 2: { name: '時光菇', emoji: '🔮', freezeDuration: 3.5 },
                   3: { name: '永恆菇', emoji: '🔮', freezeDuration: 5, timeRewind: true } },
+ magnet: { 2: { name: '強力磁菇', emoji: '🧲', bonusHp: 20, magnetRange: 2 },
+ 3: { name: '黑洞磁菇', emoji: '🧲', bonusHp: 40, magnetRange: 3, magnetDamage: true } },
+ melon: { 2: { name: '冰西瓜', emoji: '🍉', bonusDmg: 12, splashRows: 2 },
+ 3: { name: '末日西瓜', emoji: '🍉', bonusDmg: 25, splashRows: 3, freezeSplash: true } },
+ spikeweed: { 2: { name: '鐵地刺', emoji: '🌿', bonusDmg: 6, slowOnHit: true },
+ 3: { name: '毀滅地刺', emoji: '🌿', bonusDmg: 14, slowOnHit: true, armorBreak: true } },
 };
 
 // ── XP 需求 (每級所需總 XP) ───────────────────
@@ -99,11 +111,11 @@ export const BOSS_WAVES = {
 // ── 牌組抽牌池 ─────────────────────────────────
 export const DRAFT_POOL = {
   // Tier 1 植物牌 — 出現機率高
-  plants_t1: ['peashooter', 'sunflower', 'wallnut'],
+  plants_t1: ['peashooter', 'sunflower', 'wallnut', 'spikeweed'],
   // Tier 2 植物牌 — 出現機率中
-  plants_t2: ['repeater', 'icepea', 'bomb', 'prism', 'gambler'],
+  plants_t2: ['repeater', 'icepea', 'bomb', 'prism', 'gambler', 'magnet'],
   // Tier 3 植物牌 — 出現機率低
-  plants_t3: ['firepea', 'shadowvine', 'thornwall', 'oracle'],
+  plants_t3: ['firepea', 'shadowvine', 'thornwall', 'oracle', 'melon'],
   // 強化牌 — 加強已有植物
   mutations: [
     { id: 'rapid',   name: '急速生長', emoji: '⚡', desc: '所有植物攻速 +20%',  type: 'global_buff', stat: 'attackSpeed', value: 0.2 },
@@ -137,10 +149,11 @@ export function zombieKindForWave(w) {
   if (w >= 4) pool.push('fast');
   if (w >= 5) pool.push('healer');
   if (w >= 6) pool.push('bucket');
-  if (w >= 7) pool.push('splitter');
+  if (w >= 7) pool.push('splitter', 'armored');
   if (w >= 9) pool.push('necro');
-  if (w >= 11) pool.push('giant');
-  return pool[Math.floor(Math.random() * pool.length)];
+ if (w >= 11) pool.push('giant');
+ if (w >= 13) pool.push('dancer');
+ return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // ── 波次殭屍數量 ───────────────────────────────

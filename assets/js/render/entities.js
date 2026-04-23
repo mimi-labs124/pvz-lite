@@ -41,14 +41,17 @@ export function renderEntities(boardEl, state) {
     if (z.burning) className += ' burning';
     el.className = className;
 
-    el.style.left = `${z.x * 95 + 4}px`;
-    el.style.top = `${z.row * 94 + (z.kind === 'giant' || z.kind === 'boss' ? 2 : 10)}px`;
+ el.style.left = `${z.x * 95 + 4}px`;
+ el.style.top = `${z.row * 94 + (z.kind === 'giant' || z.kind === 'boss' ? 2 : z.kind === 'dancer' ? 6 : z.kind === 'backup' || z.kind === 'mini' ? 18 : 10)}px`;
 
-    let icon = ZOMBIES[z.kind]?.emoji || '🧟';
-    if (z.kind === 'boss') icon = z.bossEmoji || '👾';
-    if (z.shield) icon += '🛡️';
+ let icon = ZOMBIES[z.kind]?.emoji || '🧟';
+ if (z.kind === 'boss') icon = z.bossEmoji || '👾';
+ if (z.kind === 'dancer') icon = '💃';
+ if (z.kind === 'backup') icon = '🕺';
+ if (z.shield) icon += '🛡️';
+ if (z.kind === 'armored' && z.armorHp > 0) icon += '🛡️';
 
-    el.innerHTML = `${icon}<div class="hp"><i style="width:${z.maxHp ? Math.max(0, z.hp / z.maxHp * 100) : 0}%"></i></div>`;
+ el.innerHTML = `${icon}<div class="hp"><i style="width:${z.maxHp ? Math.max(0, z.hp / z.maxHp * 100) : 0}%"></i></div><span class="hp-text">${Math.max(0, Math.round(z.hp))}</span>`;
 
     if (z.slowTimer > 0 && !z.frozen) el.style.outline = '2px solid rgba(56,189,248,.55)';
     if (z.frozen) el.style.outline = '2px solid rgba(125,211,252,.85)';

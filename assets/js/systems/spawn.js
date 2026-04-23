@@ -67,12 +67,17 @@ function spawnZombieFromQueue(state, spawn) {
     if (!base) return;
     const hpScale = 1 + (state.wave - 1) * 0.14;
     const shield = kind === 'bucket' && state.wave >= 7;
-    state.zombies.push({
+    const zombie = {
       id: state.nextZombieId++, kind, row, x: cols - 0.1,
       hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
       speed: base.speed, biteTimer: 0, slowTimer: 0,
       angry: false, shield, biteDmg: base.bite,
-    });
+    };
+    // Armored zombie gets extra shield HP
+    if (kind === 'armored') {
+      zombie.armorHp = 150;
+    }
+    state.zombies.push(zombie);
   }
 }
 

@@ -4,6 +4,20 @@
 import { rows, cols, ZOMBIES } from '../config.js';
 import { getEvolutionBonus } from './evolution.js';
 import { isChaosActive } from './chaos.js';
+import { TERRAIN_TYPES } from './territory.js';
+
+// ── Combo helper — called when a pea hits ──
+function registerComboHit(state) {
+  state.comboCount = (state.comboCount || 0) + 1;
+  state.comboTimer = 2.0;
+  if (state.comboCount > (state.maxCombo || 0)) state.maxCombo = state.comboCount;
+}
+
+function getComboMultiplier(state) {
+  const combo = state.comboCount || 0;
+  // Every 5 hits = +10% bonus, capped at +100%
+  return 1 + Math.min(combo / 5 * 0.1, 1.0);
+}
 
 export function triggerBomb(state, plant, sfx) {
   sfx('boom');
@@ -188,7 +202,93 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
         }
       }
     }
-  }
+
+    // 磁力菇 — 吸走殭屍防具
+    if (p.type === 'magnet') {
+      p.magnetTimer = (p.magnetTimer || 0) + dt;
+      if (p.magnetTimer >= 1.5) {
+        p.magnetTimer = 0;
+        const magnetRange = evo.magnetRange || 1.5;
+        // Find closest zombie within range
+        let closest = null;
+        let closestDist = Infinity;
+        for (const z of state.zombies) {
+          const dist = Math.abs(z.row - p.row) + Math.abs(z.x - p.col);
+          if (dist <= magnetRange && dist < closestDist) {
+            closest = z;
+            closestDist = dist;
+          }
+        }
+        if (closest) {
+          // Strip shield
+          if (closest.shield) {
+            closest.shield = false;
+          }
+          // Armor removal for cone/bucket/armored
+          if (closest.kind === 'cone' && !closest.armorStripped) {
+            closest.hp = Math.round(closest.hp * 0.7);
+            closest.armorStripped = true;
+          } else if (closest.kind === 'bucket' && !closest.armorStripped) {
+            closest.hp = Math.round(closest.hp * 0.6);
+            closest.armorStripped = true;
+          } else if (closest.kind === 'armored' && !closest.armorStripped) {
+            closest.hp = Math.round(closest.hp * 0.6);
+            closest.armorStripped = true;
+          }
+ // Lv3: also deal damage to stripped zombies
+ if (evo.magnetDamage) {
+ closest.hp -= 25;
+ }
+ }
+ }
+ }
+
+ // ── 西瓜投手 — 拋物線濺射 3×3 ──
+ if (p.type === 'melon') {
+ const targets = state.zombies.filter(z => z.row === p.row && z.x >= p.col - 0.1);
+ p.attackTimer += dt;
+ const rate = 2.2 / (attackSpeedBuff * fertileBuff * terrSpeedMult);
+ if (targets.length > 0 && p.attackTimer >= rate) {
+ p.attackTimer = 0;
+ const target = targets.reduce((a, b) => a.x > b.x ? a : b);
+ const baseDmg = 30 + (evo.bonusDmg || 0);
+ const directDmg = evo.freezeSplash ? baseDmg + 15 : baseDmg;
+ // Direct hit
+ target.hp -= directDmg;
+ // Splash
+ const splashRowRange = evo.splashRows || 1;
+ const splashMult = evo.splashRows >= 3 ? 0.6 : evo.splashRows >= 2 ? 0.5 : 0.4;
+ state.zombies.forEach(z => {
+ if (z !== target && Math.abs(z.row - target.row) <= splashRowRange && Math.abs(z.x - target.x) <= 0.9) {
+ z.hp -= Math.floor(baseDmg * splashMult);
+ // Lv3 冰西瓜濺射附帶緩速
+ if (evo.freezeSplash) z.slowTimer = Math.max(z.slowTimer || 0, 1.5);
+ }
+ });
+ state.booms.push({ row: target.row, col: Math.round(target.x), life: 0.35, melon: true });
+ sfx('boom');
+ }
+ }
+
+ // ── 地刺 — 地面持續傷害 ──
+ if (p.type === 'spikeweed') {
+ const baseDmg = 13 + (evo.bonusDmg || 0);
+ p.attackTimer += dt;
+ if (p.attackTimer >= 0.8) {
+ p.attackTimer = 0;
+ state.zombies.forEach(z => {
+ if (z.row === p.row && Math.abs(z.x - p.col) < 0.55) {
+ z.hp -= baseDmg;
+ // Lv2+ 附帶減速
+ if (evo.slowOnHit) z.slowTimer = Math.max(z.slowTimer || 0, 1.2);
+ // Lv3 破甲
+ if (evo.armorBreak && z.shield) { z.shield = false; }
+ if (evo.armorBreak && z.kind === 'armored' && z.armorHp > 0) { z.armorHp = 0; }
+ }
+ });
+ }
+ }
+}
 }
 
 export function updatePeasCombat(state, dt, sfx) {
@@ -198,8 +298,12 @@ export function updatePeasCombat(state, dt, sfx) {
   for (const pea of state.peas) {
     const hit = state.zombies.find(z => z.row === pea.row && Math.abs(z.x - pea.x) < 0.28);
     if (hit) {
+      // Combo system: register hit
+      registerComboHit(state);
+      const comboMult = getComboMultiplier(state);
+
       // 暴擊
-      let finalDmg = pea.damage;
+      let finalDmg = pea.damage * comboMult;
       if (state.globalBuffs.critChance > 0 && Math.random() < state.globalBuffs.critChance) {
         finalDmg *= 2;
       }
@@ -207,6 +311,14 @@ export function updatePeasCombat(state, dt, sfx) {
       if (hit.shield) {
         hit.shield = false;
         hit.hp -= Math.max(6, finalDmg * 0.35);
+      } else if (hit.kind === 'armored' && hit.armorHp > 0) {
+        // Armored zombie shield absorbs damage first
+        hit.armorHp -= finalDmg;
+        if (hit.armorHp < 0) {
+          // Overflow damage goes to HP
+          hit.hp += hit.armorHp; // armorHp is negative, so this subtracts
+          hit.armorHp = 0;
+        }
       } else {
         hit.hp -= finalDmg;
       }
@@ -298,9 +410,23 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
           z.hp -= Math.round(biteDmg * reflect);
         }
       }
-    } else if (!z.frozen) {
-      z.x -= eff * dt;
-    }
+ } else if (!z.frozen) {
+ z.x -= eff * dt;
+
+ // ── 毒沼效果：經過佔領的毒沼格時減速+受傷 ──
+ if (state.territory) {
+ const col = Math.round(z.x);
+ const key = `${z.row}-${col}`;
+ if (state.territory.conquered.has(key)) {
+ const terrainId = state.territory.terrain?.[key];
+ const terrain = TERRAIN_TYPES[terrainId];
+ if (terrain?.poisonSlow) {
+ z.slowTimer = Math.max(z.slowTimer || 0, 1.0);
+ z.hp -= (terrain.poisonDps || 0) * dt;
+ }
+ }
+ }
+ }
 
     // 殭屍到達左邊 → 死亡
     if (z.x <= -0.2 && mower.used) return false;

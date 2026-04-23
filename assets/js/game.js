@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════
 // PVZ Lite: Chaos Awakening — 主遊戲協調器
 // ═══════════════════════════════════════════════
-import { rows, cols, PLANTS, SPELLS } from './config.js';
+import { rows, cols, PLANTS, SPELLS, XP_LEVELS } from './config.js';
 import { ensureAudio, sfx } from './audio.js';
 import {
-  boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl,
-  overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
-  pauseBtn, draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl,
-  deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
-  relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
+ boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl,
+ overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
+ pauseBtn, draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl, xpBarEl,
+ deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
+ relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
 } from './dom.js';
 import { updateBattleStatus } from './systems/status.js';
 import { startWaveSpawns, updateSpawning } from './systems/spawn.js';
@@ -35,11 +35,11 @@ import {
 } from './systems/relics.js';
 import { tryHarnessChaos } from './systems/harness.js';
 import {
-  initTerritory, tryConquest, territoryWaveReward,
-  isCellPlayable, isConqueredCell, territoryDefenseMultiplier,
-  territoryAttackSpeedBonus, territoryRowAttackSpeedBonus, territoryReflectBonus,
-  autoConquestCheck, conquestCost, conquestReward,
-  getCellTerrain, TERRAIN_TYPES,
+ initTerritory, tryConquest, territoryWaveReward,
+ isCellPlayable, isConqueredCell, territoryDefenseMultiplier,
+ territoryAttackSpeedBonus, territoryRowAttackSpeedBonus, territoryReflectBonus,
+ autoConquestCheck, conquestCost, conquestReward,
+ getCellTerrain, TERRAIN_TYPES, getPlayableCols,
 } from './systems/territory.js';
 
 let state;
@@ -109,10 +109,40 @@ function startNextWave() {
     }
   }
 
-  if (state.isBossWave) sfx('boss');
+ if (state.isBossWave) sfx('boss');
+
+ // Wave toast announcement
+ if (state.wave > 1) showWaveToast(state.wave);
+
+ // Wave preview— show upcoming zombie types
+  const previewKinds = getWavePreviewKinds(state.wave);
+  if (previewKinds.length > 0) {
+    showChaosAlert(`👁️ 第 ${state.wave} 波：${previewKinds.join(' ')}`);
+  }
+
+  // Bonus reroll every 5 waves
+  if (state.wave % 5 === 0 && state.wave > 0) {
+    state.draftRerolls = (state.draftRerolls || 0) + 1;
+    showChaosAlert(`🎁 每 5 波獎勵：+1 重抽機會！`);
+  }
 
   updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, 'normal');
   syncStats();
+}
+
+function getWavePreviewKinds(wave) {
+  const kinds = [];
+  if (wave >= 1) kinds.push('🧟');
+  if (wave >= 2) kinds.push('🚧');
+  if (wave >= 3) kinds.push('📰');
+  if (wave >= 4) kinds.push('🏃');
+  if (wave >= 5) kinds.push('💉');
+  if (wave >= 6) kinds.push('🪣');
+  if (wave >= 7) kinds.push('🪓🛡️');
+  if (wave >= 9) kinds.push('💀');
+  if (wave >= 11) kinds.push('🧌');
+  if (wave % 5 === 0) kinds.push('👾Boss');
+  return kinds;
 }
 
 function checkWaveComplete() {
@@ -148,6 +178,12 @@ function enterDraftPhase() {
   state.draftCards = generateDraftCards(state);
   sfx('draft');
 
+  renderDraftOverlay();
+
+  isPaused = true;
+}
+
+function renderDraftOverlay() {
   draftOverlayEl.classList.add('show');
   draftWaveEl.textContent = `第 ${state.wave} 波完成！選擇一張牌：`;
 
@@ -172,7 +208,20 @@ function enterDraftPhase() {
     el.addEventListener('click', () => selectDraftCard(parseInt(el.dataset.index)));
   });
 
-  isPaused = true;
+  // Reroll button
+  let rerollBtn = draftOverlayEl.querySelector('.draft-reroll-btn');
+  if (rerollBtn) rerollBtn.remove();
+  if (state.draftRerolls > 0) {
+    rerollBtn = document.createElement('button');
+    rerollBtn.className = 'draft-reroll-btn';
+    rerollBtn.textContent = `🔄 重抽 (${state.draftRerolls})`;
+    rerollBtn.addEventListener('click', () => {
+      state.draftRerolls--;
+      state.draftCards = generateDraftCards(state);
+      renderDraftOverlay();
+    });
+    draftOverlayEl.querySelector('.draft-dialog').appendChild(rerollBtn);
+  }
 }
 
 function selectDraftCard(idx) {
@@ -215,10 +264,12 @@ function buildShop() {
 }
 
 function selectPlant(name) {
-  if (!state.deck.includes(name)) return;
-  state.selectedPlant = name;
-  state.conquestMode = false;
-  [...document.querySelectorAll('.card')].forEach(c => c.classList.toggle('selected', c.dataset.plant === name));
+ if (!state.deck.includes(name)) return;
+ state.selectedPlant = name;
+ state.conquestMode = false;
+ state.shovelMode = false;
+ updateShovelBtn();
+ [...document.querySelectorAll('.card')].forEach(c => c.classList.toggle('selected', c.dataset.plant === name));
 }
 
 // ═══════════════════════════════════════════════
@@ -243,6 +294,7 @@ function buildSpellBar() {
       <div class="spell-emoji">${s.emoji}</div>
       <div class="spell-name">${s.name}</div>
       <div class="spell-cd"></div>
+      <div class="spell-cooldown-overlay"></div>
     </div>`;
   }).join('');
 
@@ -267,9 +319,20 @@ function refreshSpellCooldowns() {
     const id = el.dataset.spell;
     const cd = state.spellCooldowns[id] || 0;
     const ready = cd <= 0;
+    const maxCd = SPELLS[id]?.cooldown || 1;
     el.classList.toggle('ready', ready);
     el.classList.toggle('cooldown', !ready);
     el.querySelector('.spell-cd').textContent = ready ? '' : Math.ceil(cd) + 's';
+    // Overlay-based cooldown
+    const overlay = el.querySelector('.spell-cooldown-overlay');
+    if (overlay) {
+      if (ready) {
+        overlay.style.transform = 'scaleY(0)';
+      } else {
+        const pct = Math.min(1, cd / maxCd);
+        overlay.style.transform = `scaleY(${pct})`;
+      }
+    }
   });
 }
 
@@ -283,43 +346,54 @@ function createBoard() {
 }
 
 function handleCellClick(r, c) {
-  if (state.gameOver || state.draftPhase) return;
+ if (state.gameOver || state.draftPhase) return;
 
-  if (state.conquestMode) {
-    const result = tryConquest(state, r, c);
-    if (result.ok) {
-      sfx('plant');
-      showChaosAlert(result.msg);
-      territoryDirty = true;
-      if (result.advanced) createBoard();
-      syncStats();
-      render();
-    } else {
-      flash(sunEl);
-      showChaosAlert(`❌ ${result.msg}`);
-    }
-    return;
-  }
+ if (state.shovelMode) {
+ handleShovel(r, c);
+ return;
+ }
 
-  placePlant(r, c);
+ if (state.conquestMode) {
+ const result = tryConquest(state, r, c);
+ if (result.ok) {
+ sfx('plant');
+ showChaosAlert(result.msg);
+ territoryDirty = true;
+ if (result.advanced) createBoard();
+ syncStats();
+ render();
+ } else {
+ flash(sunEl);
+ showChaosAlert(`❌ ${result.msg}`);
+ }
+ return;
+ }
+
+ // 如果該格已有植物 → 升級
+ const key = cellKey(r, c);
+ if (state.plants.has(key)) {
+ handleUpgrade(r, c);
+ return;
+ }
+
+ placePlant(r, c);
 }
 
 function placePlant(r, c) {
   if (state.gameOver || state.draftPhase) return;
 
-  if (!isCellPlayable(state, c)) {
-    showChaosAlert('🚫 尚未佔領！點「🗡️ 佔領」來推進前線');
-    flash(boardEl);
-    return;
-  }
+ if (!isCellPlayable(state, c)) {
+ showChaosAlert('🚫 此列尚未開放！推進更多波次來解鎖');
+ flash(boardEl);
+ return;
+ }
 
   const key = cellKey(r, c);
   const type = state.selectedPlant;
   const def = PLANTS[type];
   if (!def) return;
   const actualCost = actualPlantCost(state, type, def);
-  if (state.plants.has(key)) return;
-  if (state.cooldowns[type] > 0) return flash(shopEl);
+ if (state.cooldowns[type] > 0) return flash(shopEl);
   if (state.sun < actualCost) return flash(sunEl);
 
   state.sun -= actualCost;
@@ -349,6 +423,134 @@ function placePlant(r, c) {
   updateShop(state);
   sfx(type === 'bomb' ? 'boom' : 'plant');
   render();
+}
+
+// ═══════════════════════════════════════════════
+// 鏟子 — 移除植物退回部分陽光
+// ═══════════════════════════════════════════════
+
+function handleShovel(r, c) {
+ if (state.gameOver) return;
+ const key = cellKey(r, c);
+ const plant = state.plants.get(key);
+ if (!plant) return;
+ const def = PLANTS[plant.type];
+ const refund = Math.floor((def?.cost || 0) * 0.5);
+ state.sun += refund;
+ state.plants.delete(key);
+ state.shovelMode = false;
+ updateShovelBtn();
+ sfx('shovel');
+ showChaosAlert(`🪏 鏟除 ${def?.name || '植物'}，退回 ${refund} ☀️`);
+ syncStats();
+ updateShop(state);
+ render();
+}
+
+function toggleShovel() {
+ state.shovelMode = !state.shovelMode;
+ if (state.shovelMode) {
+ state.selectedPlant = null;
+ state.conquestMode = false;
+ [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
+ }
+ updateShovelBtn();
+}
+
+function updateShovelBtn() {
+ const btn = document.getElementById('shovelBtn');
+ if (btn) btn.classList.toggle('active', state.shovelMode);
+}
+
+// ═══════════════════════════════════════════════
+// 陽光升級 — 點擊已種植物花陽光強化
+// ═══════════════════════════════════════════════
+
+function handleUpgrade(r, c) {
+ if (state.gameOver) return;
+ const key = cellKey(r, c);
+ const plant = state.plants.get(key);
+ if (!plant) return;
+
+ const currentLevel = plant.level || 1;
+ if (currentLevel >= 3) {
+ showChaosAlert('⭐ 已達最高等級！');
+ return;
+ }
+
+ const upgradeCost = Math.floor((PLANTS[plant.type]?.cost || 50) * currentLevel * 0.6);
+ if (state.sun < upgradeCost) {
+ flash(sunEl);
+ showChaosAlert(`❌ 升級需要 ${upgradeCost} ☀️`);
+ return;
+ }
+
+ state.sun -= upgradeCost;
+ plant.level = currentLevel + 1;
+ plant.maxHp = Math.round(plant.maxHp * 1.25);
+ plant.hp = Math.min(plant.hp + Math.round(plant.maxHp * 0.2), plant.maxHp);
+ applyEvolutionToPlant(plant);
+ state.upgradeCount = (state.upgradeCount || 0) + 1;
+
+ sfx('evolve');
+ showChaosAlert(`⭐ ${PLANTS[plant.type]?.name} 升級到 Lv.${plant.level}！(-${upgradeCost} ☀️)`);
+ syncStats();
+ updateShop(state);
+ render();
+}
+
+// ═══════════════════════════════════════════════
+// 波次公告 toast
+// ═══════════════════════════════════════════════
+
+let waveToastTimer = 0;
+
+function showWaveToast(wave) {
+ let el = document.getElementById('waveToast');
+ if (!el) {
+ el = document.createElement('div');
+ el.id = 'waveToast';
+ el.className = 'wave-toast';
+ const wrap = document.querySelector('.board-wrap');
+ if (wrap) wrap.appendChild(el);
+ }
+ const isBig = wave % 5 === 0;
+ el.textContent = isBig ? `🌊 第 ${wave} 波 — 大波來襲！` : `🌊 第 ${wave} 波`;
+ el.classList.add('show');
+ el.classList.toggle('big', isBig);
+ waveToastTimer = 2.2;
+}
+
+// ═══════════════════════════════════════════════
+// Cell 高亮 — 顯示可放/不可放
+// ═══════════════════════════════════════════════
+
+function updateCellHighlights() {
+ if (!state.selectedPlant || state.shovelMode || state.conquestMode || state.gameOver) {
+ boardEl.querySelectorAll('.cell').forEach(c => c.classList.remove('valid', 'invalid'));
+ return;
+ }
+ const def = PLANTS[state.selectedPlant];
+ if (!def) return;
+ boardEl.querySelectorAll('.cell').forEach(c => {
+ const col = parseInt(c.dataset.col);
+ const r = parseInt(c.dataset.row);
+ const key = cellKey(r, col);
+ const hasPlant = state.plants.has(key);
+ const canAfford = state.sun >= actualPlantCost(state, state.selectedPlant, def);
+ const notOnCooldown = state.cooldowns[state.selectedPlant] <= 0;
+ const playable = isCellPlayable(state, col);
+ if (hasPlant || !playable) {
+ c.classList.remove('valid');
+ c.classList.add('invalid');
+ } else if (canAfford && notOnCooldown) {
+ c.classList.add('valid');
+ c.classList.remove('invalid');
+ } else {
+ c.classList.remove('valid');
+ c.classList.add('invalid');
+ }
+ });
 }
 
 // ═══════════════════════════════════════════════
@@ -438,9 +640,10 @@ function updateBossHpBar() {
 // ═══════════════════════════════════════════════
 
 function updateTerritoryUI() {
-  if (frontlineInfoEl) {
-    frontlineInfoEl.textContent = `前線：第 ${state.territory.frontline} 列 | 佔領：${state.territory.conquered.size} 格`;
-  }
+ const playableCols = getPlayableCols(state);
+ if (frontlineInfoEl) {
+ frontlineInfoEl.textContent = `可放：${playableCols} 列 | 佔領：${state.territory.conquered.size} 格（第 ${state.wave} 波）`;
+ }
 
   if (conquestBtnEl) {
     conquestBtnEl.textContent = state.conquestMode ? '⚔️ 佔領中...' : '🗡️ 佔領';
@@ -602,15 +805,35 @@ function update(dt) {
   // 警報倒數
   updateChaosAlert(dt);
 
-  // UI — 輕量更新
-  updateShop(state);
-  refreshSpellCooldowns();
-  updateBossHpBar();
+  // Combo timer decay
+  if (state.comboTimer > 0) {
+    state.comboTimer -= dt;
+    if (state.comboTimer <= 0) {
+      state.comboCount = 0;
+      state.comboTimer = 0;
+    }
+  }
 
-  const dangerLevel = state.zombies.length >= 8 ? 'danger' : state.zombies.length >= 4 ? 'alert' : 'normal';
-  updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, dangerLevel);
+ // UI — 輕量更新
+ updateShop(state);
+ refreshSpellCooldowns();
+ updateBossHpBar();
+ updateComboDisplay();
+ updateCellHighlights();
 
-  checkWaveComplete();
+ const dangerLevel = state.zombies.length >= 8 ? 'danger' : state.zombies.length >= 4 ? 'alert' : 'normal';
+ updateBattleStatus(state, { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl }, dangerLevel);
+
+ // Wave toast
+ if (waveToastTimer > 0) {
+ waveToastTimer -= dt;
+ if (waveToastTimer <= 0) {
+ const toast = document.getElementById('waveToast');
+ if (toast) toast.classList.remove('show', 'big');
+ }
+ }
+
+ checkWaveComplete();
 }
 
 function render() {
@@ -628,16 +851,28 @@ function gameEnd(win) {
   recordRun(state);
   const ownedRelics = loadRelics();
 
-  if (win) {
-    endTitleEl.textContent = '🎉 你贏了！';
-    endTextEl.textContent = `通關到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻\n領土：${state.territory.conquered.size} 格 | 遺物：${ownedRelics.length} 個`;
-    sfx('win');
-  } else {
-    endTitleEl.textContent = '💀 殭屍突破了防線';
-    endTextEl.textContent = `你撐到第 ${state.wave} 波，擊殺 ${state.totalKills} 隻\n遺物：${ownedRelics.length} 個\n\n🏆 選擇一個遺物帶入下一局！`;
-    sfx('lose');
-    setTimeout(() => showRelicSelection(), 800);
-  }
+ const statsEl = document.getElementById('endStats');
+ const statsHTML = `
+ <div><div class="stat-label">擊殺</div><div class="stat-val">${state.totalKills}</div></div>
+ <div><div class="stat-label">波次</div><div class="stat-val">${state.wave}</div></div>
+ <div><div class="stat-label">升級次數</div><div class="stat-val">${state.upgradeCount || 0}</div></div>
+ <div><div class="stat-label">最高連殺</div><div class="stat-val">${state.comboCount || 0}x</div></div>
+ <div><div class="stat-label">領土</div><div class="stat-val">${state.territory?.conquered?.size || 0} 格</div></div>
+ <div><div class="stat-label">遺物</div><div class="stat-val">${ownedRelics.length} 個</div></div>
+ `;
+
+ if (win) {
+ endTitleEl.textContent = '🎉 你贏了！';
+ endTextEl.textContent = '';
+ if (statsEl) statsEl.innerHTML = statsHTML;
+ sfx('win');
+ } else {
+ endTitleEl.textContent = '💀 殭屍突破了防線';
+ endTextEl.textContent = '🏆 選擇一個遺物帶入下一局！';
+ if (statsEl) statsEl.innerHTML = statsHTML;
+ sfx('lose');
+ setTimeout(() => showRelicSelection(), 800);
+ }
 }
 
 // ═══════════════════════════════════════════════
@@ -650,7 +885,70 @@ function syncStats() {
   waveEl.textContent = state.wave;
   mowerEl.textContent = state.lawnmowers.filter(m => !m.used).length;
   if (deckCountEl) deckCountEl.textContent = state.deck.length;
-  if (runInfoEl) runInfoEl.textContent = `第 ${state.wave} 波 | 🏛️ ${loadRelics().length} 遺物`;
+ if (runInfoEl) runInfoEl.textContent = `第 ${state.wave} 波 | 🏛️ ${loadRelics().length} 遺物`;
+ updateXpBar();
+ updateComboDisplay();
+ // Speed display
+ let speedEl = document.getElementById('speedDisplay');
+ if (!speedEl) {
+ speedEl = document.createElement('span');
+ speedEl.id = 'speedDisplay';
+ speedEl.className = 'pill speed-pill';
+ const statsEl = document.querySelector('.stats');
+ if (statsEl) statsEl.appendChild(speedEl);
+ }
+ speedEl.textContent = (state.gameSpeed || 1) > 1 ? `⏩ ${state.gameSpeed}x` : '';
+}
+
+// ═══════════════════════════════════════════════
+// XP Progress Bar — 顯示場上植物 XP 進度
+// ═══════════════════════════════════════════════
+
+function updateXpBar() {
+  if (!xpBarEl) return;
+  const plants = [...state.plants.values()];
+  if (plants.length === 0) {
+    xpBarEl.innerHTML = '<span style="color:var(--muted);font-size:11px;">尚無植物</span>';
+    return;
+  }
+  xpBarEl.innerHTML = plants.map(p => {
+    const level = getPlantLevel(p.xp || 0);
+    const nextXp = XP_LEVELS[level] ?? XP_LEVELS[XP_LEVELS.length - 1];
+    const prevXp = XP_LEVELS[level - 1] ?? 0;
+    const progress = level >= 3 ? 1 : (nextXp > prevXp ? (p.xp - prevXp) / (nextXp - prevXp) : 0);
+    const pct = Math.min(100, Math.max(0, progress * 100));
+    const def = PLANTS[p.type];
+    return `<div class="xp-item">
+      <span class="xp-emoji">${def?.emoji || '?'}</span>
+      <span class="xp-info">
+        <span class="xp-name">${def?.name || p.type} <small>Lv.${Math.min(level, 3)}</small></span>
+        <span class="xp-progress"><span class="xp-fill" style="width:${pct}%"></span></span>
+      </span>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// Combo Display — 顯示連擊計數
+// ═══════════════════════════════════════════════
+
+function updateComboDisplay() {
+  let comboEl = document.getElementById('comboDisplay');
+  const count = state.comboCount || 0;
+  if (count < 2) {
+    if (comboEl) comboEl.remove();
+    return;
+  }
+  if (!comboEl) {
+    comboEl = document.createElement('span');
+    comboEl.id = 'comboDisplay';
+    comboEl.className = 'pill combo-pill';
+    // Insert into stats area
+    const statsEl = document.querySelector('.stats');
+    if (statsEl) statsEl.appendChild(comboEl);
+  }
+  const bonus = Math.min(count / 5 * 10, 100);
+  comboEl.textContent = `🔥 x${count} +${Math.round(bonus)}%`;
 }
 
 // ═══════════════════════════════════════════════
@@ -661,10 +959,10 @@ function frame(ts) {
   if (!lastTime) lastTime = ts;
   const dt = Math.min((ts - lastTime) / 1000, 0.033);
   lastTime = ts;
-  if (!isPaused && !state.draftPhase && !state.relicPhase) {
-    update(dt);
-    render();
-  }
+ if (!isPaused && !state.draftPhase && !state.relicPhase) {
+ update(dt * (state.gameSpeed || 1));
+ render();
+ }
   loopId = requestAnimationFrame(frame);
 }
 
@@ -696,14 +994,44 @@ export function bindGameEvents() {
     }
   });
 
-  if (conquestBtnEl) {
-    conquestBtnEl.addEventListener('click', () => {
-      state.conquestMode = !state.conquestMode;
-      if (state.conquestMode) {
-        state.selectedPlant = null;
-        [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
-      }
-      updateTerritoryUI();
-    });
-  }
+ // Shovel button
+ const shovelBtn = document.getElementById('shovelBtn');
+ if (shovelBtn) {
+ shovelBtn.addEventListener('click', () => { ensureAudio(); toggleShovel(); });
+ }
+
+ // Speed control
+ const speedBtn = document.getElementById('speedBtn');
+ if (speedBtn) {
+ speedBtn.addEventListener('click', () => {
+ ensureAudio();
+ state.gameSpeed = state.gameSpeed >= 2 ? 1 : state.gameSpeed + 0.5;
+ speedBtn.textContent = state.gameSpeed > 1 ? `⏩ ${state.gameSpeed}x` : '⏩ 加速';
+ speedBtn.classList.toggle('active', state.gameSpeed > 1);
+ syncStats();
+ });
+ }
+
+ // Right-click on cell to upgrade
+ boardEl.querySelectorAll('.cell').forEach(cell => {
+ cell.addEventListener('contextmenu', e => {
+ e.preventDefault();
+ const r = Number(cell.dataset.row);
+ const c = Number(cell.dataset.col);
+ handleUpgrade(r, c);
+ });
+ });
+
+ if (conquestBtnEl) {
+ conquestBtnEl.addEventListener('click', () => {
+ state.conquestMode = !state.conquestMode;
+ if (state.conquestMode) {
+ state.selectedPlant = null;
+ state.shovelMode = false;
+ updateShovelBtn();
+ [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
+ }
+ updateTerritoryUI();
+ });
+ }
 }

@@ -36,16 +36,37 @@ export const TERRAIN_TYPES = {
     attackSpeedBonus: 0,     // 自身不加
     rowAttackSpeedBonus: 0.10, // 整排加成
   },
-  fortress: {
-    id: 'fortress', name: '堡壘', emoji: '🏰',
-    desc: '該格植物 HP +40%，反傷 +5',
-    color: 'rgba(168, 85, 247, .2)',
-    borderColor: 'rgba(168, 85, 247, .5)',
-    waveBonus: 0,
-    defenseBonus: 0.40,
-    attackSpeedBonus: 0,
-    reflectBonus: 5,
-  },
+ fortress: {
+ id: 'fortress', name: '堡壘', emoji: '🏰',
+ desc: '該格植物 HP +40%，反傷 +5',
+ color: 'rgba(168, 85, 247, .2)',
+ borderColor: 'rgba(168, 85, 247, .5)',
+ waveBonus: 0,
+ defenseBonus: 0.40,
+ attackSpeedBonus: 0,
+ reflectBonus: 5,
+ },
+ poison_swamp: {
+ id: 'poison_swamp', name: '毒沼', emoji: '☠️',
+ desc: '佔領後殭屍經過減速且每秒受傷',
+ color: 'rgba(132, 204, 22, .22)',
+ borderColor: 'rgba(132, 204, 22, .5)',
+ waveBonus: 0,
+ defenseBonus: 0,
+ attackSpeedBonus: 0,
+ poisonSlow: 0.4,
+ poisonDps: 6,
+ },
+ altar: {
+ id: 'altar', name: '聖壇', emoji: '🛐',
+ desc: '佔領後該格植物 XP 獲取翻倍',
+ color: 'rgba(250, 204, 21, .18)',
+ borderColor: 'rgba(250, 204, 21, .5)',
+ waveBonus: 15,
+ defenseBonus: 0,
+ attackSpeedBonus: 0,
+ xpMulti: 1.0,
+ },
 };
 
 // ── 地形生成 ──────────────────────────────────
@@ -56,8 +77,8 @@ export function generateTerrain(rows, cols, startPlayableCols) {
     for (let c = startPlayableCols; c < cols - 1; c++) {
       // 35% 機率有特殊地形
       if (Math.random() < 0.35) {
-        const types = Object.keys(TERRAIN_TYPES);
-        const weights = [40, 25, 20, 15]; // sun_well 常見，fortress 稀有
+ const types = Object.keys(TERRAIN_TYPES);
+ const weights = [30, 20, 15, 10, 15, 10]; // sun_well > poison > speed > altar > watchtower > fortress
         const total = weights.reduce((a, b) => a + b, 0);
         let roll = Math.random() * total;
         let chosen = types[0];
@@ -100,12 +121,12 @@ export function conquestReward(state) {
 
 // ── 初始化領土狀態 ────────────────────────────
 export function initTerritory(state) {
-  state.territory = {
-    frontline: TERRITORY.startPlayableCols,
-    conquered: new Set(),
-    maxCol: 8,
-    terrain: generateTerrain(rows, 9, TERRITORY.startPlayableCols),
-  };
+ state.territory = {
+ frontline: TERRITORY.startPlayableCols,
+ conquered: new Set(),
+ maxCol: 8,
+ terrain: generateTerrain(rows, 9, 3), // 從第3列開始生成地形（更早的地形更豐富）
+ };
 }
 
 const rows = 5; // 用常數避免循環 import
@@ -120,9 +141,13 @@ export function getCellTerrain(state, r, c) {
 
 // ── 嘗試佔領一格 ──────────────────────────────
 export function tryConquest(state, row, col) {
-  if (col !== state.territory.frontline) return { ok: false, msg: '只能佔領前線下一列' };
-  if (col >= TERRITORY.zombieSpawnCol) return { ok: false, msg: '無法佔領殭屍出生區' };
-  if (state.territory.conquered.has(cellKey(row, col))) return { ok: false, msg: '已佔領' };
+ const playableCols = getPlayableCols(state);
+ if (col >= playableCols) return { ok: false, msg: '尚未開放！繼續推進波次來解鎖' };
+ if (state.territory.conquered.has(cellKey(row, col))) return { ok: false, msg: '已佔領' };
+
+ // 如果有特殊地形才需要花陽光佔領
+ const terrain = getCellTerrain(state, row, col);
+ if (!terrain) return { ok: false, msg: '這格沒有特殊地形，不需要佔領' };
 
   const cost = conquestCost(state, col);
   if (state.sun < cost) return { ok: false, msg: `陽光不足（需要 ${cost}）` };
@@ -141,9 +166,8 @@ export function tryConquest(state, row, col) {
     return { ok: true, msg: `🗡️ 前線推進到第 ${col + 1} 列！`, advanced: true };
   }
 
-  // 告訴玩家佔領了什麼地形
-  const terrain = getCellTerrain(state, row, col);
-  const terrainMsg = terrain ? `（${terrain.emoji} ${terrain.name}）` : '';
+ // 告訴玩家佔領了什麼地形
+ const terrainMsg = terrain ? `（${terrain.emoji} ${terrain.name}）` : '';
   return { ok: true, msg: `佔領成功！${terrainMsg}`, advanced: false };
 }
 
@@ -164,9 +188,18 @@ export function territoryWaveReward(state) {
 }
 
 // ── 檢查格子是否可放置 ──────────────────────
+// 隨波次自動開放更多列：wave 1 → 5列, wave 3 → 6列, wave 6 → 7列, wave 10 → 8列
+export function getPlayableCols(state) {
+ if (!state.territory) return 5;
+ const wave = state.wave || 1;
+ if (wave >= 10) return 8;
+ if (wave >= 6) return 7;
+ if (wave >= 3) return 6;
+ return 5;
+}
+
 export function isCellPlayable(state, col) {
-  if (!state.territory) return col < 5;
-  return col < state.territory.frontline;
+ return col < getPlayableCols(state);
 }
 
 // ── 檢查是否為佔領格 ──────────────────────────

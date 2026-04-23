@@ -19,10 +19,12 @@
       <div class="pill kill-pill">💀 <span id="kills">0</span></div>
       <div class="pill wave-pill">🌊 <span id="wave">1</span></div>
       <div class="pill deck-pill">🃏 <span id="deckCount">3</span></div>
-      <div class="pill mower-pill">🚜 <span id="mowerCount">5</span></div>
-      <div id="runInfo" class="pill run-pill">第 1 波 | 🏛️ 0 遺物</div>
-      <button id="pauseBtn">暫停</button>
-      <button id="restartBtn">🔄 重新開始</button>
+ <div class="pill mower-pill">🚜 <span id="mowerCount">5</span></div>
+ <div id="runInfo" class="pill run-pill">第 1 波 | 🏛️ 0 遺物</div>
+ <button id="shovelBtn" class="shovel-btn" title="鏟子：移除植物退回50%陽光">🪏 鏟子</button>
+ <button id="speedBtn" class="speed-btn" title="遊戲速度">⏩ 加速</button>
+ <button id="pauseBtn">暫停</button>
+ <button id="restartBtn">🔄 重新開始</button>
     </div>
   </div>
 
@@ -73,8 +75,13 @@
         ─ 解鎖<b>法術</b>，即時施放扭轉戰局<br>
         ─ <b>混亂事件</b>隨機觸發，進化植物可<b>馴服</b><br>
         ─ 花<b>陽光佔領</b>前線，擴展領土<br>
-        ─ 死亡後獲得<b>遺物</b>，下一局更強<br>
-        ─ 每 5 波出現 <b>Boss</b>！
+ ─ 死亡後獲得<b>遺物</b>，下一局更強<br>
+ ─ 每 5 波出現 <b>Boss</b>！<br>
+ ─ 🍉 <b>西瓜投手</b>：3×3 濺射 | 🌿 <b>地刺</b>：地面持續傷害<br>
+ ─ 💃 <b>舞王殭屍</b>：死亡召喚伴舞！<br>
+ ─ 點已種植物<b>花陽光升級</b>（最高 Lv3），右鍵也可以<br>
+ ─ 🪏 <b>鏟子</b>移除植物退回 50% 陽光<br>
+ ─ ⏩ <b>加速</b>按鈕切換 1x / 1.5x / 2x
       </div>
     </aside>
 
@@ -104,9 +111,10 @@
       <!-- 遊戲結束覆蓋 -->
       <div id="overlay" class="overlay">
         <div class="dialog">
-          <h2 id="endTitle">遊戲結束</h2>
-          <p id="endText" class="muted"></p>
-          <button id="playAgainBtn">🔄 重新開始</button>
+ <h2 id="endTitle">遊戲結束</h2>
+ <p id="endText" class="muted"></p>
+ <div id="endStats" class="end-stats"></div>
+ <button id="playAgainBtn">🔄 重新開始</button>
         </div>
       </div>
 
