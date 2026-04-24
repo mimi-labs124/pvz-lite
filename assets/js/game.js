@@ -9,8 +9,8 @@ import {
  draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl,
  deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
  relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
- battleLogEl,
 } from './dom.js';
+const battleLogEl = document.getElementById('battleLog');
 import { cellKey, flash } from './core/helpers.js';
 import { makeBoard } from './render/board.js';
 import { createRunState, initCooldowns, getPlantLevel, addPlantXP } from './core/state.js';
