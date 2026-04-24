@@ -233,6 +233,19 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 /* Evolution glow */
 .plant.evo-2 { box-shadow: 0 0 8px rgba(250, 204, 21, .35); }
 .plant.evo-3 { box-shadow: 0 0 14px rgba(248, 113, 113, .45); }
+.plant.evolve-flash {
+	animation: evolveFlash 0.4s ease-out 3 alternate;
+}
+@keyframes evolveFlash {
+	from {
+		box-shadow: 0 0 6px rgba(250, 204, 21, .4);
+		filter: brightness(1);
+	}
+	to {
+		box-shadow: 0 0 28px rgba(250, 204, 21, .9), 0 0 56px rgba(168, 85, 247, .5);
+		filter: brightness(1.6);
+	}
+}
 
 /* Chaos Awakening: Shield effect */
 .plant.shielded { outline: 2px solid rgba(34, 211, 238, .7) !important; box-shadow: 0 0 12px rgba(34, 211, 238, .5) !important; }
@@ -314,20 +327,54 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 
 /* ── Boss HP Bar — fixed 不佔位 ── */
 .boss-hp-bar {
-  visibility: hidden; opacity: 0; height: 28px; border-radius: 14px;
-  background: rgba(15, 23, 42, .8); border: 1px solid rgba(220, 38, 38, .35);
-  overflow: hidden; margin-bottom: 0; position: absolute;
-  top: 0; left: 0; right: 0; z-index: 70;
-  transition: opacity .3s, visibility .3s;
+ visibility: hidden; opacity: 0; height: 28px; border-radius: 14px;
+ background: rgba(15, 23, 42, .8); border: 1px solid rgba(220, 38, 38, .35);
+ overflow: hidden; margin-bottom: 0; position: absolute;
+ top: 0; left: 0; right: 0; z-index: 70;
+ transition: opacity .3s, visibility .3s;
 }
 .boss-hp-bar.show { visibility: visible; opacity: 1; }
-.boss-hp-fill {
-  height: 100%; width: 100%; background: linear-gradient(90deg, #dc2626, #f97316);
-  border-radius: 14px; transition: width .3s;
+.boss-hp-bar.enraged {
+	border-color: rgba(239, 68, 68, .9);
+	animation: bossBarRage 0.5s infinite alternate;
 }
+@keyframes bossBarRage {
+	from { box-shadow: 0 0 6px rgba(239, 68, 68, .5); }
+	to { box-shadow: 0 0 18px rgba(239, 68, 68, .9), 0 0 40px rgba(239, 68, 68, .3); }
+}
+.boss-hp-fill {
+	height: 100%; width: 100%; background: linear-gradient(90deg, #dc2626, #f97316);
+	border-radius: 14px; transition: width .3s;
+}
+.boss-shield-fill {
+	position: absolute; top: 0; left: 0; height: 100%;
+	background: linear-gradient(90deg, #3b82f6, #60a5fa);
+	border-radius: 14px; opacity: .55; transition: width .3s;
+	z-index: 1;
+}
+.boss-hp-fill { position: relative; z-index: 2; }
 .boss-hp-text {
-  position: absolute; inset: 0; display: grid; place-items: center;
-  font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000;
+ position: absolute; inset: 0; display: grid; place-items: center;
+ font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000;
+}
+
+/* ── Boss Entity 視覺 ── */
+.boss-shield-bar {
+ position: absolute; bottom: -6px; left: 2px; right: 2px; height: 4px;
+ background: rgba(30, 64, 175, .4); border-radius: 2px; overflow: hidden;
+}
+.boss-shield-bar i {
+ display: block; height: 100%; background: linear-gradient(90deg, #60a5fa, #3b82f6);
+ border-radius: 2px; transition: width .2s;
+}
+.boss-name {
+ position: absolute; bottom: -16px; left: 0; right: 0; text-align: center;
+ font-size: 9px; font-weight: 700; color: #fbbf24;
+ text-shadow: 0 1px 2px #000; white-space: nowrap;
+}
+@keyframes bossRage {
+ from { transform: scale(1); filter: brightness(1); }
+ to { transform: scale(1.06); filter: brightness(1.3); }
 }
 
 /* ── Battle Status ────────────────────────── */
@@ -367,6 +414,26 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 .chaos-alert.show {
  transform: translateY(0); opacity: 1;
 }
+
+/* ── Battle Log (戰鬥日誌) ─────────────── */
+.battle-log {
+ position: absolute; bottom: 8px; left: 8px; right: 8px;
+ z-index: 70; pointer-events: none;
+ display: flex; flex-direction: column-reverse; gap: 2px;
+ max-height: 110px; overflow: hidden;
+}
+.log-entry {
+ padding: 2px 8px; border-radius: 3px;
+ background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(2px);
+ font-size: 11px; color: #d4d4d8; white-space: nowrap;
+ overflow: hidden; text-overflow: ellipsis;
+ animation: logFadeIn 0.2s ease;
+}
+.log-ts { color: #71717a; margin-right: 4px; font-size: 10px; }
+.log-danger { color: #fca5a5; border-left: 2px solid #ef4444; }
+.log-success { color: #86efac; border-left: 2px solid #22c55e; }
+.log-boss { color: #fbbf24; border-left: 2px solid #f59e0b; font-weight: 600; }
+@keyframes logFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── Frontline Gauge (推進條) ─────────────── */
 .frontline-gauge {

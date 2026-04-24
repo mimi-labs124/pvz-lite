@@ -36,3 +36,4 @@ export const relicCardsEl = document.getElementById('relicCards');
 export const relicTitleEl = document.getElementById('relicTitle');
 export const frontlineInfoEl = document.getElementById('frontlineInfo');
 export const conquestBtnEl = document.getElementById('conquestBtn');
+export const battleLogEl = document.getElementById('battleLog');

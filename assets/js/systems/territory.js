@@ -208,14 +208,21 @@ export function territoryWaveReward(state) {
 }
 
 // ── 檢查格子是否可放置 ──────────────────────
-// 隨波次自動開放更多列：wave 1 → 5列, wave 3 → 6列, wave 6 → 7列, wave 10 → 8列
+// 隨波次自動開放更多列 + 領土前線推進 + 殭屍壓力收縮
 export function getPlayableCols(state) {
  if (!state.territory) return 5;
  const wave = state.wave || 1;
- if (wave >= 10) return 8;
- if (wave >= 6) return 7;
- if (wave >= 3) return 6;
- return 5;
+ // 波次基礎開放
+ let base = 5;
+ if (wave >= 3) base = 6;
+ if (wave >= 6) base = 7;
+ if (wave >= 10) base = 8;
+ // 前線推進加成（佔領推進了前線）
+ const frontlineBonus = Math.max(0, (state.territory.frontline || 5) - 5);
+ // 殭屍壓力收縮（殭屍深入到哪一列，那一列就不可用）
+ const zombiePressure = state.territory.zombiePressureCol || 99;
+ const maxFromZombies = zombiePressure;
+ return Math.max(5, Math.min(base + frontlineBonus, maxFromZombies, 9));
 }
 
 export function isCellPlayable(state, col) {

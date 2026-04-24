@@ -36,22 +36,23 @@ export function cleanupState(state, dt) {
  }
 
  // 舞王殭屍死亡 → 召喚伴舞殭屍
- if (z.kind === 'dancer' && !z._danced) {
- z._danced = true;
- const backupBase = ZOMBIES.backup;
- if (backupBase) {
- for (const rowOff of [-1, 0, 1]) {
- const r = z.row + rowOff;
- if (r < 0 || r >= 5) continue;
- state.zombies.push({
- id: state.nextZombieId++, kind: 'backup', row: r,
- x: Math.max(0, z.x + (rowOff === 0 ? -0.3 : 0.1)),
- hp: backupBase.hp, maxHp: backupBase.hp, speed: backupBase.speed,
- biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: backupBase.bite,
- });
- }
- }
- }
+	if (z.kind === 'dancer' && !z._danced) {
+		z._danced = true;
+		const backupBase = ZOMBIES.backup;
+		if (backupBase) {
+			const biteScale = 1 + Math.max(0, state.wave - 5) * 0.04;
+			for (const rowOff of [-1, 0, 1]) {
+				const r = z.row + rowOff;
+				if (r < 0 || r >= 5) continue;
+				state.zombies.push({
+					id: state.nextZombieId++, kind: 'backup', row: r,
+					x: Math.max(0, z.x + (rowOff === 0 ? -0.3 : 0.1)),
+					hp: backupBase.hp, maxHp: backupBase.hp, speed: backupBase.speed,
+					biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: Math.round(backupBase.bite * biteScale),
+				});
+			}
+		}
+	}
 
     // 亡者歸來 — 復活
     if (chaosUndeadCheck(state, z)) {
@@ -74,10 +75,11 @@ export function cleanupState(state, dt) {
  const oldLevel = plant.level || 1;
  addPlantXP(state, key, reward);
  const newLevel = getPlantLevel(plant.xp || 0);
- if (newLevel > oldLevel) {
- plant.level = newLevel;
- applyEvolutionToPlant(plant);
- }
+	if (newLevel > oldLevel) {
+		plant.level = newLevel;
+		plant.justEvolved = 1.5; // 1.5 秒閃光特效
+		applyEvolutionToPlant(plant);
+	}
  }
  }
 
@@ -91,9 +93,14 @@ export function cleanupState(state, dt) {
   state.suns.forEach(s => { if (s.y < s.targetY) s.y += s.fall; s.life -= dt; });
   state.suns = state.suns.filter(s => s.life > 0);
 
-  // 爆炸動畫
-  state.booms.forEach(b => b.life -= dt);
-  state.booms = state.booms.filter(b => b.life > 0);
+	// 爆炸動畫
+	state.booms.forEach(b => b.life -= dt);
+	state.booms = state.booms.filter(b => b.life > 0);
 
-  return { killed };
+	// 進化閃光計時遞減
+	for (const p of state.plants.values()) {
+		if (p.justEvolved > 0) p.justEvolved = Math.max(0, p.justEvolved - dt);
+	}
+
+	return { killed };
 }

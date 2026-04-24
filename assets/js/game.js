@@ -2,13 +2,14 @@
 // PVZ Lite: Chaos Awakening — 主遊戲協調器
 // ═══════════════════════════════════════════════
 
-import { rows, cols, PLANTS, SPELLS, XP_LEVELS, DIFFICULTY } from './config.js';
+import { rows, cols, PLANTS, ZOMBIES, SPELLS, XP_LEVELS, DIFFICULTY, BOSS_WAVES } from './config.js';
 import {
  boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl,
  pauseBtn, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
- draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl, xpBarEl,
+ draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl,
  deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
  relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
+ battleLogEl,
 } from './dom.js';
 import { cellKey, flash } from './core/helpers.js';
 import { makeBoard } from './render/board.js';
@@ -29,6 +30,7 @@ import {
 import { actualPlantCost } from './systems/shop.js';
 import { sfx, audioState } from './audio.js';
 import { applyEvolutionToPlant, getEvolutionBonus } from './systems/evolution.js';
+import { bindPauseControl, bindKeyboardShortcuts } from './ui/controls.js';
 
 let state, loopId, lastTime = 0, isPaused = false, territoryDirty = true;
 
@@ -97,9 +99,12 @@ function startNextWave() {
  if (isBoss) {
  const bossKey = Object.keys(PLANTS).find(k => k.startsWith('boss'));
  showWaveToast(`⚠️ BOSS 來襲！`, true);
+ const bossConfig = BOSS_WAVES[Math.min(state.wave, 20)] || BOSS_WAVES[20];
+ battleLog(`👾 BOSS：${bossConfig?.name || '殭屍首領'} 來襲！`, 'boss');
  sfx('boss');
  } else {
  showWaveToast(`第 ${state.wave} 波`, false);
+ battleLog(`🌊 第 ${state.wave} 波開始`);
  }
 
  territoryDirty = true;
@@ -111,8 +116,13 @@ function checkWaveComplete() {
  state.waveActive = false;
  state.bossActive = false;
 
+ battleLog(`✅ 第 ${state.wave} 波完成！`, 'success');
+
  const terrReward = territoryWaveReward(state);
- if (terrReward > 0) showChaosAlert(`🗡️ 領土收益 +${terrReward} ☀️`);
+ if (terrReward > 0) {
+ showChaosAlert(`🗡️ 領土收益 +${terrReward} ☀️`);
+ battleLog(`☀️ 領土收益 +${terrReward}`);
+ }
 
  const autoResult = autoConquestCheck(state);
  if (autoResult) {
@@ -120,7 +130,14 @@ function checkWaveComplete() {
  ? `🏰 自動佔領，前線推進！`
  : `🏰 自動佔領一格`;
  showChaosAlert(msg);
+ battleLog(msg, 'success');
  territoryDirty = true;
+ }
+
+ // Boss 狂暴日誌
+ if (state.bossRageTriggered) {
+ battleLog(`🤬 Boss 狂暴化！速度+30%、攻擊+50%`, 'danger');
+ state.bossRageTriggered = false;
  }
 
  enterDraftPhase();
@@ -240,17 +257,28 @@ function showRelicSelection() {
 // ═══════════════════════════════════════════════
 
 function frame(now) {
- loopId = requestAnimationFrame(frame);
- if (!lastTime) { lastTime = now; return; }
- const raw = (now - lastTime) / 1000;
- lastTime = now;
- const dt = Math.min(raw, 0.1);
+	loopId = requestAnimationFrame(frame);
+	if (!lastTime) { lastTime = now; return; }
+	const raw = (now - lastTime) / 1000;
+	lastTime = now;
+	const dt = Math.min(raw, 0.1);
 
- if (!isPaused && !state.draftPhase && !state.relicPhase) {
- const gameDt = dt * (state.gameSpeed || 1);
- update(gameDt);
- }
- render();
+	try {
+		if (!isPaused && !state.draftPhase && !state.relicPhase) {
+			const gameDt = dt * (state.gameSpeed || 1);
+			update(gameDt);
+		}
+		render();
+	} catch (err) {
+		console.error('Frame error:', err);
+		// 避免循環刷 log，只記錄前 3 次
+		if (!window._frameErrCount) window._frameErrCount = 0;
+		window._frameErrCount++;
+		if (window._frameErrCount <= 3) {
+			const d = document.getElementById('battleLog');
+			if (d) d.innerHTML = `<div style="color:#ef4444;padding:4px;font-size:11px;">⚠️ ${err.message}</div>` + d.innerHTML;
+		}
+	}
 }
 
 function update(dt) {
@@ -277,7 +305,12 @@ function update(dt) {
  sfx('plant');
  showChaosAlert(conquestResult.msg);
  territoryDirty = true;
- if (conquestResult.advanced) createBoard();
+ if (conquestResult.advanced) {
+ battleLog(`🗡️ 前線推進！${conquestResult.msg}`, 'success');
+ createBoard();
+ } else {
+ battleLog(conquestResult.msg, 'success');
+ }
  }
 
  checkWaveComplete();
@@ -449,6 +482,7 @@ function placePlant(r, c) {
  state.plants.set(key, plant);
  applyEvolutionToPlant(plant);
  sfx('plant');
+ battleLog(`${def.emoji} ${def.name} 種植在 (${r},${c})`);
 
  // 自動取消選取（避免誤放多個）
  // state.selectedPlant = null;
@@ -515,24 +549,26 @@ function handleUpgrade(r, c) {
  return;
  }
 
- const upgradeCost = Math.floor((PLANTS[plant.type]?.cost || 50) * currentLevel * 0.6);
+	const upgradeCost = Math.floor((PLANTS[plant.type]?.cost || 50) * (currentLevel === 1 ? 0.6 : 1.0) * currentLevel);
  if (state.sun < upgradeCost) {
  flash(sunEl);
  showChaosAlert(`❌ 升級需要 ${upgradeCost} ☀️`);
  return;
  }
 
- state.sun -= upgradeCost;
- plant.level = currentLevel + 1;
- plant.maxHp = Math.round(plant.maxHp * 1.25);
- plant.hp = Math.min(plant.hp + Math.round(plant.maxHp * 0.2), plant.maxHp);
- applyEvolutionToPlant(plant);
+	state.sun -= upgradeCost;
+	plant.level = currentLevel + 1;
+	plant.maxHp = Math.round(plant.maxHp * 1.25);
+	plant.hp = Math.min(plant.hp + Math.round(plant.maxHp * 0.2), plant.maxHp);
+	plant.justEvolved = 1.5; // 1.5 秒閃光特效
+	applyEvolutionToPlant(plant);
  state.upgradeCount = (state.upgradeCount || 0) + 1;
 
  sfx('evolve');
  const evo = getEvolutionBonus(plant.type, plant.level);
  const evoDesc = evo?.desc ? ` — ${evo.desc}` : '';
  showChaosAlert(`⭐ ${PLANTS[plant.type]?.name} → Lv.${plant.level}${evoDesc} (-${upgradeCost} ☀️)`);
+ battleLog(`⭐ ${PLANTS[plant.type]?.emoji} ${PLANTS[plant.type]?.name} 升級到 Lv.${plant.level}`, 'success');
  syncStats();
  updateShop(state);
  render();
@@ -714,10 +750,19 @@ function updateBattleStatus(state, dom, modifier) {
  const { battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl } = dom;
  if (!battleStatusEl) return;
  const isBoss = !!(state.wave % 5 === 0);
+ const nextWave = state.wave + 1;
+ const nextIsBoss = nextWave % 5 === 0;
  if (isBoss) {
  statusTitleEl.textContent = `👁️ 第 ${state.wave} 波：🧟‍♂️ BOSS`;
  } else {
  statusTitleEl.textContent = `👁️ 第 ${state.wave} 波：🧟`;
+ }
+ // 下一波預覽
+ if (!state.waveActive && !state.draftPhase) {
+ const nextBossName = nextIsBoss ? (BOSS_WAVES[Math.min(nextWave, 20)]?.name || 'Boss') : null;
+ statusTextEl.textContent = nextIsBoss
+ ? `下一波：⚠️ BOSS「${nextBossName}」來襲！`
+ : `下一波：第 ${nextWave} 波 — ${getWavePreviewText(nextWave)}`;
  }
  const modifierNames = {
  normal: '普通日', solar: '☀️ 大晴天', fog: '🌫️ 濃霧',
@@ -725,6 +770,23 @@ function updateBattleStatus(state, dom, modifier) {
  };
  modifierTagEl.textContent = modifierNames[modifier] || '普通日';
  modifierTagEl.className = `modifier-tag ${modifier}`;
+}
+
+function getWavePreviewText(wave) {
+ const newKinds = [];
+ if (wave === 2) newKinds.push('🚧 路障');
+ if (wave === 3) newKinds.push('📰 報紙');
+ if (wave === 4) newKinds.push('🏃 跑者');
+ if (wave === 5) newKinds.push('💉 治療師');
+ if (wave === 6) newKinds.push('🪣 鐵桶');
+ if (wave === 7) newKinds.push('🪓 分裂', '🛡️ 裝甲');
+ if (wave === 8) newKinds.push('🐸 跳跳');
+ if (wave === 9) newKinds.push('💀 死靈');
+ if (wave === 10) newKinds.push('🏹 攻城');
+ if (wave === 11) newKinds.push('🧌 巨人');
+ if (wave === 13) newKinds.push('💃 舞王');
+ if (newKinds.length > 0) return `新殭屍：${newKinds.join(' ')}`;
+ return '殭屍持續增強...';
 }
 
 function showChaosAlert(msg) {
@@ -744,6 +806,28 @@ function showWaveToast(text, isBig) {
  toast.classList.toggle('big', isBig);
  toast.classList.add('show');
  // Auto-remove handled by render timer
+}
+
+// ═══════════════════════════════════════════════
+// 戰鬥日誌系統
+// ═══════════════════════════════════════════════
+const LOG_MAX = 6;
+let logEntries = [];
+
+function battleLog(text, type = 'info') {
+ const now = new Date();
+ const ts = `${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+ logEntries.unshift({ ts, text, type });
+ if (logEntries.length > LOG_MAX) logEntries.length = LOG_MAX;
+ renderBattleLog();
+}
+
+function renderBattleLog() {
+ if (!battleLogEl) return;
+ battleLogEl.innerHTML = logEntries.map(e => {
+ const cls = e.type === 'danger' ? 'log-danger' : e.type === 'success' ? 'log-success' : e.type === 'boss' ? 'log-boss' : '';
+ return `<div class="log-entry ${cls}"><span class="log-ts">${e.ts}</span> ${e.text}</div>`;
+ }).join('');
 }
 
 // ═══════════════════════════════════════════════
@@ -921,6 +1005,7 @@ function triggerEliteWave() {
  // 精英波：額外 3 隻更強的殭屍
  sfx('boss');
  showChaosAlert('⚠️ 殭屍潮湧！精英殭屍增援！');
+ battleLog(`⚠️ 精英殭屍增援！3 隻精英殭屍出現`, 'danger');
 
  for (let i = 0; i < 3; i++) {
  const row = Math.floor(Math.random() * rows);
@@ -957,18 +1042,37 @@ function syncStats() {
  speedBtn.classList.toggle('active', (state.gameSpeed || 1) > 1);
  }
 
- // Boss HP
- const boss = state.zombies.find(z => z.kind === 'boss');
- if (boss) {
- bossHpBarEl?.classList.add('show');
- if (bossHpTextEl) bossHpTextEl.textContent = `${Math.round(boss.hp)} / ${boss.maxHp}`;
- if (bossHpBarEl) {
- const fill = bossHpBarEl.querySelector('.boss-hp-fill');
- if (fill) fill.style.width = `${Math.max(0, boss.hp / boss.maxHp * 100)}%`;
- }
- } else {
- bossHpBarEl?.classList.remove('show');
- }
+	// Boss HP + 護盾 + 狂暴視覺
+	const boss = state.zombies.find(z => z.kind === 'boss');
+	if (boss) {
+		bossHpBarEl?.classList.add('show');
+		if (boss.enraged) bossHpBarEl?.classList.add('enraged');
+		else bossHpBarEl?.classList.remove('enraged');
+
+		if (bossHpTextEl) {
+			let label = `${Math.round(boss.hp)} / ${boss.maxHp}`;
+			if (boss.shield && boss.shieldHp > 0) label += ` 🛡️${Math.round(boss.shieldHp)}`;
+			bossHpTextEl.textContent = label;
+		}
+		if (bossHpBarEl) {
+			const fill = bossHpBarEl.querySelector('.boss-hp-fill');
+			if (fill) fill.style.width = `${Math.max(0, boss.hp / boss.maxHp * 100)}%`;
+			// 護盾分段條
+			let shieldFill = bossHpBarEl.querySelector('.boss-shield-fill');
+			if (boss.shield && boss.shieldHp > 0) {
+				if (!shieldFill) {
+					shieldFill = document.createElement('div');
+					shieldFill.className = 'boss-shield-fill';
+					bossHpBarEl.insertBefore(shieldFill, bossHpBarEl.firstChild);
+				}
+				shieldFill.style.width = `${Math.min(100, boss.shieldHp / boss.maxHp * 100)}%`;
+			} else if (shieldFill) {
+				shieldFill.remove();
+			}
+		}
+	} else {
+		bossHpBarEl?.classList.remove('show', 'enraged');
+	}
 
  // 前線推進條
  updateFrontlineGauge();
@@ -1065,18 +1169,6 @@ function recordRun(state) {
 
 // ═══════════════════════════════════════════════
 // 暫停 & 速度控制
-// ═══════════════════════════════════════════════
-
-function bindPauseControl(btn, titleEl, textEl, getPaused, setPaused) {
- btn.addEventListener('click', () => {
- const p = !getPaused();
- setPaused(p);
- btn.textContent = p ? '▶ 繼續' : '暫停';
- });
-}
-
-// ═══════════════════════════════════════════════
-// 事件綁定
 // ═══════════════════════════════════════════════
 
 export function bindGameEvents() {
@@ -1181,6 +1273,34 @@ export function bindGameEvents() {
  }
  }
  if (tip) cell.title = tip;
+ });
+
+ // ── 鍵盤快捷鍵 ──
+ bindKeyboardShortcuts({
+ selectPlant: (idx) => {
+ ensureAudio();
+ const deckArr = state.deck || [];
+ if (idx < deckArr.length) selectPlant(deckArr[idx]);
+ },
+ toggleShovel: () => { ensureAudio(); toggleShovel(); },
+ togglePause: () => {
+ isPaused = !isPaused;
+ pauseBtn.textContent = isPaused ? '▶ 繼續' : '暫停';
+ },
+ toggleSpeed: () => {
+ ensureAudio();
+ state.gameSpeed = state.gameSpeed >= 2 ? 1 : state.gameSpeed + 0.5;
+ const speedBtn = document.getElementById('speedBtn');
+ if (speedBtn) {
+ speedBtn.textContent = state.gameSpeed > 1 ? `⏩ ${state.gameSpeed}x` : '⏩ 加速';
+ speedBtn.classList.toggle('active', state.gameSpeed > 1);
+ }
+ },
+ castSpell: (idx) => {
+ const spellKeys = Object.keys(SPELLS);
+ if (idx < spellKeys.length) castSpell(spellKeys[idx]);
+ },
+		deckLength: () => (state.deck || []).length,
  });
 }
 

@@ -18,9 +18,10 @@ export function renderEntities(boardEl, state) {
     const evo = getEvolutionBonus(p.type, level);
     const evoName = evo.name || PLANTS[p.type]?.name || '';
 
-    el.className = `plant ${p.type}`;
-    if (level >= 2) el.classList.add(`evo-${level}`);
-    // ── Chaos Awakening: 護盾效果 ──
+	el.className = `plant ${p.type}`;
+	if (level >= 2) el.classList.add(`evo-${level}`);
+	if (p.justEvolved > 0) el.classList.add('evolve-flash');
+	// ── Chaos Awakening: 護盾效果 ──
     if (state.shieldTimer > 0) el.classList.add('shielded');
     el.innerHTML = `
       ${PLANTS[p.type]?.emoji || '?'}
@@ -53,17 +54,39 @@ export function renderEntities(boardEl, state) {
 
  el.innerHTML = `${icon}<div class="hp"><i style="width:${z.maxHp ? Math.max(0, z.hp / z.maxHp * 100) : 0}%"></i></div><span class="hp-text">${Math.max(0, Math.round(z.hp))}</span>`;
 
-    if (z.slowTimer > 0 && !z.frozen) el.style.outline = '2px solid rgba(56,189,248,.55)';
-    if (z.frozen) el.style.outline = '2px solid rgba(125,211,252,.85)';
-    if (z.burning) el.style.outline = '2px solid rgba(251,146,60,.65)';
+ if (z.slowTimer > 0 && !z.frozen) el.style.outline = '2px solid rgba(56,189,248,.55)';
+ if (z.frozen) el.style.outline = '2px solid rgba(125,211,252,.85)';
+ if (z.burning) el.style.outline = '2px solid rgba(251,146,60,.65)';
 
-    if (z.kind === 'boss') {
-      el.style.width = '82px';
-      el.style.height = '95px';
-      el.style.fontSize = '46px';
-      el.style.background = 'rgba(239,68,68,.32)';
-      el.style.border = '2px solid rgba(251,146,60,.6)';
-    }
+ if (z.kind === 'boss') {
+ el.style.width = '82px';
+ el.style.height = '95px';
+ el.style.fontSize = '46px';
+ el.style.background = z.enraged
+ ? 'rgba(220,38,38,.45)'
+ : 'rgba(239,68,68,.32)';
+ el.style.border = z.enraged
+ ? '3px solid rgba(239,68,68,.9)'
+ : '2px solid rgba(251,146,60,.6)';
+ if (z.enraged) {
+ el.style.boxShadow = '0 0 18px rgba(239,68,68,.7), inset 0 0 8px rgba(251,146,60,.4)';
+ el.style.animation = 'bossRage 0.6s infinite alternate';
+ }
+ // Boss 護盾 HP 條
+ if (z.shield && z.shieldHp > 0) {
+ const shieldBar = document.createElement('div');
+ shieldBar.className = 'boss-shield-bar';
+ shieldBar.innerHTML = `<i style="width:${Math.max(0, z.shieldHp / 200 * 100)}%"></i>`;
+ el.appendChild(shieldBar);
+ }
+ // Boss 名字
+ if (z.bossName) {
+ const nameTag = document.createElement('div');
+ nameTag.className = 'boss-name';
+ nameTag.textContent = z.bossName;
+ el.appendChild(nameTag);
+ }
+ }
 
     boardEl.appendChild(el);
   }

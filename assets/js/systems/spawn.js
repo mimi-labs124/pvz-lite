@@ -55,30 +55,33 @@ function spawnZombieFromQueue(state, spawn) {
   const kind = spawn.kind;
   const isBoss = spawn.isBoss;
 
-  if (isBoss) {
-    const config = spawn.config;
-    state.zombies.push({
-      id: state.nextZombieId++, kind: 'boss', row, x: cols - 0.1,
-      hp: config.bossHp, maxHp: config.bossHp,
-      speed: config.bossSpeed, biteTimer: 0, slowTimer: 0,
-      angry: false, shield: false,
-      bossName: config.name, bossEmoji: config.emoji,
-      biteDmg: config.bossBite,
-    });
+ if (isBoss) {
+ const config = spawn.config;
+ state.zombies.push({
+ id: state.nextZombieId++, kind: 'boss', row, x: cols - 0.1,
+ hp: config.bossHp, maxHp: config.bossHp,
+ speed: config.bossSpeed, biteTimer: 0, slowTimer: 0,
+ angry: false, shield: false,
+ bossName: config.name, bossEmoji: config.emoji,
+ biteDmg: config.bossBite,
+ bossSkills: config.skills || [],
+ bossAddKinds: config.adds || [],
+ });
   } else {
  const base = ZOMBIES[kind];
  if (!base) return;
- const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
- const baseHpScale = 1 + (state.wave - 1) * 0.14;
- const hpScale = baseHpScale * (diff.zombieHpScale || 1);
- const speedScale = diff.zombieSpeedScale || 1;
- const shield = kind === 'bucket' && state.wave >= 7;
- const zombie = {
- id: state.nextZombieId++, kind, row, x: cols - 0.1,
- hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
- speed: base.speed * speedScale, biteTimer: 0, slowTimer: 0,
- angry: false, shield, biteDmg: base.bite,
- };
+	const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+	const baseHpScale = 1 + (state.wave - 1) * 0.14;
+	const hpScale = baseHpScale * (diff.zombieHpScale || 1);
+	const speedScale = diff.zombieSpeedScale || 1;
+	const biteScale = 1 + Math.max(0, state.wave - 5) * 0.04; // 波次 5+ 咬傷逐漸增加
+	const shield = kind === 'bucket' && state.wave >= 7;
+	const zombie = {
+		id: state.nextZombieId++, kind, row, x: cols - 0.1,
+		hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
+		speed: base.speed * speedScale, biteTimer: 0, slowTimer: 0,
+		angry: false, shield, biteDmg: Math.round(base.bite * biteScale),
+	};
     // Armored zombie gets extra shield HP
     if (kind === 'armored') {
       zombie.armorHp = 150;

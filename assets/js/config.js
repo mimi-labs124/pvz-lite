@@ -104,10 +104,24 @@ export const CHAOS_EVENTS = [
 
 // ── Boss 波次配置 (每 5 波出 Boss) ─────────────
 export const BOSS_WAVES = {
-  5:  { name: '殭屍隊長',   emoji: '👾', bossHp: 1200, bossSpeed: 0.09, bossBite: 45, adds: ['normal', 'cone'], addCount: 4 },
-  10: { name: '殭屍將軍',   emoji: '👹', bossHp: 2200, bossSpeed: 0.10, bossBite: 55, adds: ['bucket', 'splitter'], addCount: 5 },
-  15: { name: '殭屍之王',   emoji: '💀', bossHp: 3500, bossSpeed: 0.08, bossBite: 65, adds: ['giant', 'necro'], addCount: 6 },
-  20: { name: '世界吞噬者', emoji: '🐉', bossHp: 5000, bossSpeed: 0.07, bossBite: 80, adds: ['giant', 'healer', 'necro'], addCount: 8 },
+ 5: { name: '殭屍隊長', emoji: '👾', bossHp: 1200, bossSpeed: 0.09, bossBite: 45,
+ adds: ['normal', 'cone'], addCount: 4,
+ skills: [{ type: 'summon', interval: 8, desc: '每 8 秒召喚 2 隻小兵' }] },
+ 10: { name: '殭屍將軍', emoji: '👹', bossHp: 2200, bossSpeed: 0.10, bossBite: 55,
+ adds: ['bucket', 'splitter'], addCount: 5,
+ skills: [{ type: 'shield', interval: 10, desc: '每 10 秒獲得護盾（吸收 200 傷害）' },
+ { type: 'summon', interval: 9, desc: '每 9 秒召喚小兵' }] },
+ 15: { name: '殭屍之王', emoji: '💀', bossHp: 3500, bossSpeed: 0.08, bossBite: 65,
+ adds: ['giant', 'necro'], addCount: 6,
+ skills: [{ type: 'rage', threshold: 0.5, desc: 'HP < 50% 時狂暴（攻速+50%、速度+30%）' },
+ { type: 'summon', interval: 7, desc: '每 7 秒召喚精英' },
+ { type: 'heal', interval: 12, amount: 0.1, desc: '每 12 秒回復 10% HP' }] },
+ 20: { name: '世界吞噬者', emoji: '🐉', bossHp: 5000, bossSpeed: 0.07, bossBite: 80,
+ adds: ['giant', 'healer', 'necro'], addCount: 8,
+ skills: [{ type: 'rage', threshold: 0.6, desc: 'HP < 60% 時狂暴' },
+ { type: 'summon', interval: 6, desc: '每 6 秒召喚精英' },
+ { type: 'destroy', interval: 15, desc: '每 15 秒摧毀隨機一株植物' },
+ { type: 'shield', interval: 8, desc: '每 8 秒獲得護盾' }] },
 };
 
 // ── 牌組抽牌池 ─────────────────────────────────

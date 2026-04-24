@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════
 // Combat System — 含進化加成與混亂效果
 // ═══════════════════════════════════════════════
-import { rows, cols, ZOMBIES, DIFFICULTY } from '../config.js';
+import { rows, cols, ZOMBIES, BOSS_WAVES, DIFFICULTY } from '../config.js';
 import { getEvolutionBonus } from './evolution.js';
 import { isChaosActive } from './chaos.js';
 import { TERRAIN_TYPES } from './territory.js';
@@ -308,10 +308,21 @@ export function updatePeasCombat(state, dt, sfx) {
         finalDmg *= 2;
       }
 
-      if (hit.shield) {
-        hit.shield = false;
-        hit.hp -= Math.max(6, finalDmg * 0.35);
-      } else if (hit.kind === 'armored' && hit.armorHp > 0) {
+ if (hit.shield) {
+ if (hit.shieldHp && hit.shieldHp > 0) {
+ // Boss 護盾：吸收傷害
+ hit.shieldHp -= finalDmg;
+ if (hit.shieldHp <= 0) {
+ hit.shield = false;
+ hit.hp += hit.shieldHp; // overflow damage
+ hit.shieldHp = 0;
+ }
+ } else {
+ // 普通護盾：一次消耗
+ hit.shield = false;
+ hit.hp -= Math.max(6, finalDmg * 0.35);
+ }
+ } else if (hit.kind === 'armored' && hit.armorHp > 0) {
         // Armored zombie shield absorbs damage first
         hit.armorHp -= finalDmg;
         if (hit.armorHp < 0) {
@@ -351,7 +362,17 @@ export function updatePeasCombat(state, dt, sfx) {
 }
 
 export function updateZombieCombat(state, dt, sfx, cellKey) {
-  for (const z of state.zombies) {
+ // ── 追蹤殭屍壓力線（最深入的那隻殭屍所在列） ──
+ let minZombieCol = 99;
+ for (const z of state.zombies) {
+ const col = Math.floor(z.x);
+ if (col < minZombieCol) minZombieCol = col;
+ }
+ if (state.territory) {
+ state.territory.zombiePressureCol = Math.min(minZombieCol + 1, 9);
+ }
+
+ for (const z of state.zombies) {
     // 報紙殭屍暴怒
     if (z.kind === 'paper' && !z.angry && z.hp < z.maxHp * 0.45) z.angry = true, z.speed *= 1.9;
 
@@ -394,52 +415,67 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     }
     if (mower.active) continue;
 
-    // 咬植物
-    if (plant) {
+ const zDef = ZOMBIES[z.kind];
+ const isHopper = zDef?.skipPlant;
+ const isSieger = zDef?.ranged;
+
+ // ── 跳跳殭屍：遇到植物跳過一格 ──
+ if (isHopper && plant && (z.skipCooldown || 0) <= 0) {
+ z.x -= 1.1; // 跳到植物後方
+ z.skipCooldown = 2; // 2 秒冷卻
+ plant = null; // 跳過後不再咬
+ }
+
+ // ── 攻城殭屍：遠程攻擊（3 格距離射擊） ──
+ if (isSieger) {
+ z.rangedTimer = (z.rangedTimer || 0) + dt;
+ if (z.rangedTimer >= 2.0) {
+ z.rangedTimer = 0;
+ // 找同行 3 格內最近的植物遠程攻擊
+ let rangedTarget = null;
+ let rangedKey = null;
+ for (const [key, p] of state.plants) {
+ if (p.row === z.row && p.col < Math.floor(z.x) && p.col >= Math.floor(z.x) - 3) {
+ if (!rangedTarget || p.col > rangedTarget.col) {
+ rangedTarget = p;
+ rangedKey = key;
+ }
+ }
+ }
+ if (rangedTarget) {
+ const rDmg = Math.round((z.biteDmg || 18) * 0.7);
+ rangedTarget.hp -= rDmg;
+ if (rangedTarget.hp <= 0) state.plants.delete(rangedKey);
+ }
+ }
+ // 攻城殭屍不咬植物，持續移動
+ if (!z.frozen) z.x -= eff * dt * 0.7;
+ }
+ // 咬植物（非跳跳、非攻城才停下咬）
+ else if (plant) {
  z.biteTimer += dt;
  if (z.biteTimer >= 0.7) {
  z.biteTimer = 0;
  const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
  const biteScale = diff.biteScale || 1;
  const biteDmg = Math.round((z.biteDmg || ZOMBIES[z.kind]?.bite || 18) * biteScale);
-        if (state.shieldTimer <= 0) {
-          plant.hp -= biteDmg;
-          if (plant.hp <= 0) state.plants.delete(plantKey);
-        }
-        // 堡壘反傷
-        const reflect = plant.terrReflect || 0;
-        if (reflect > 0) {
-          z.hp -= Math.round(biteDmg * reflect);
-        }
-      }
+ if (state.shieldTimer <= 0) {
+ plant.hp -= biteDmg;
+ if (plant.hp <= 0) state.plants.delete(plantKey);
+ }
+ // 堡壘反傷
+ const reflect = plant.terrReflect || 0;
+ if (reflect > 0) {
+ z.hp -= Math.round(biteDmg * reflect);
+ }
+ }
  } else if (!z.frozen) {
- // ── 跳跳殭屍：遇到植物跳過一格 ──
- const zDef = ZOMBIES[z.kind];
- if (zDef?.skipPlant && plant) {
- // 跳過植物
- z.x -= 1.1;
- z.skipCooldown = 2; // 2 秒冷卻
- } else if (z.skipCooldown > 0) {
+ // 普通移動
+ if (isHopper && (z.skipCooldown || 0) > 0) {
  z.skipCooldown -= dt;
  z.x -= eff * dt * 0.5; // 冷卻中減速
  } else {
  z.x -= eff * dt;
- }
-
- // ── 攻城殭屍：遠程攻擊（3 格距離射擊） ──
- if (zDef?.ranged) {
- z.rangedTimer = (z.rangedTimer || 0) + dt;
- if (z.rangedTimer >= 2.0 && plant) {
- z.rangedTimer = 0;
- // 找 3 格內最近的植物攻擊
- for (const [key, p] of state.plants) {
- if (p.row === z.row && p.col < Math.floor(z.x) && p.col >= Math.floor(z.x) - 3) {
- const rDmg = Math.round((z.biteDmg || 18) * 0.7);
- p.hp -= rDmg;
- if (p.hp <= 0) state.plants.delete(key);
- break;
- }
- }
  }
  }
 
@@ -458,10 +494,11 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  z.hp -= (terrain.poisonDps || 0) * dt;
  }
  // 聖壇：佔領後殭屍在該格受到額外傷害
- if (terrain?.id === 'altar') {
- z.hp -= 3 * dt;
- }
- } else if (terrain) {
+		if (terrain?.id === 'altar') {
+			z.hp -= 3 * dt;
+		}
+	}
+	if (!conquered && terrain) {
  // 未佔領的地形 → 殭屍受益（前期難度平衡：只在高波次生效）
  if (state.wave >= 4) {
  if (terrain.id === 'speed_lane') {
@@ -475,12 +512,11 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  }
  }
  }
- }
- }
+	}
 
-    // 殭屍到達左邊 → 死亡
-    if (z.x <= -0.2 && mower.used) return false;
-  }
+		// 殭屍到達左邊 → 死亡
+		if (z.x <= -0.2 && mower.used) return false;
+	}
 
   // 治療殭屍 (healer) — 治療附近殭屍
   for (const z of state.zombies) {
@@ -495,17 +531,90 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
       }
     }
     // 死靈法師殭屍 — 定期召喚小殭屍
-    if (z.kind === 'necro') {
-      z.necroTimer = (z.necroTimer || 0) + dt;
-      if (z.necroTimer >= 5.0) {
-        z.necroTimer = 0;
-        state.zombies.push({
-          id: state.nextZombieId++, kind: 'mini', row: z.row, x: Math.min(cols - 0.1, z.x + 0.5),
-          hp: 45, maxHp: 45, speed: 0.30, biteTimer: 0, slowTimer: 0, angry: false, shield: false, mini: true,
-        });
-      }
-    }
-  }
+	if (z.kind === 'necro') {
+		z.necroTimer = (z.necroTimer || 0) + dt;
+		if (z.necroTimer >= 5.0) {
+			z.necroTimer = 0;
+			state.zombies.push({
+				id: state.nextZombieId++, kind: 'mini', row: z.row, x: Math.min(cols - 0.1, z.x + 0.5),
+				hp: 45, maxHp: 45, speed: 0.30, biteTimer: 0, slowTimer: 0, angry: false, shield: false, mini: true,
+			});
+		}
+	}
+	}
 
-  return true;
+	// ── Boss 技能系統 ──
+	for (const z of state.zombies) {
+ if (z.kind !== 'boss' || !z.bossSkills) continue;
+
+ // 狂暴：HP 低於閾值時永久觸發
+ for (const skill of z.bossSkills) {
+ if (skill.type === 'rage' && !z.enraged) {
+ const hpRatio = z.hp / z.maxHp;
+ if (hpRatio <= (skill.threshold || 0.5)) {
+ z.enraged = true;
+ z.speed *= 1.3;
+ z.biteDmg = Math.round(z.biteDmg * 1.5);
+ state.bossRageTriggered = true;
+ }
+ }
+ }
+
+ // 計時型技能
+ for (const skill of z.bossSkills) {
+ if (skill.type === 'rage') continue; // 已處理
+ const timerKey = `skill_${skill.type}`;
+ z[timerKey] = (z[timerKey] || 0) + dt;
+ if (z[timerKey] >= (skill.interval || 10)) {
+ z[timerKey] = 0;
+
+ switch (skill.type) {
+ case 'summon': {
+ // 召喚 2 隻小兵在 Boss 附近
+ const addKinds = z.bossAddKinds || ['normal'];
+ for (let i = 0; i < 2; i++) {
+ const kind = addKinds[Math.floor(Math.random() * addKinds.length)];
+ const base = ZOMBIES[kind];
+ if (base) {
+ const hpScale = 1 + (state.wave - 1) * 0.14;
+ state.zombies.push({
+ id: state.nextZombieId++, kind, row: z.row,
+ x: Math.min(cols - 0.1, z.x + 0.3 + i * 0.5),
+ hp: Math.round(base.hp * hpScale * 0.8),
+ maxHp: Math.round(base.hp * hpScale * 0.8),
+ speed: base.speed * 1.1, biteTimer: 0, slowTimer: 0,
+ angry: false, shield: false, biteDmg: base.bite,
+ });
+ }
+ }
+ break;
+ }
+ case 'shield': {
+ // 獲得護盾
+ z.shield = true;
+ z.shieldHp = 200;
+ break;
+ }
+ case 'heal': {
+ // 回復 HP
+ const amount = (skill.amount || 0.1) * z.maxHp;
+ z.hp = Math.min(z.maxHp, z.hp + amount);
+ break;
+ }
+ case 'destroy': {
+ // 摧毀隨機一株植物
+ const plants = [...state.plants.entries()];
+ if (plants.length > 0) {
+ const [key, p] = plants[Math.floor(Math.random() * plants.length)];
+ state.plants.delete(key);
+ state.booms.push({ row: p.row, col: p.col, life: 0.3 });
+ }
+ break;
+ }
+ }
+ }
+ }
+ }
+
+ return true;
 }
