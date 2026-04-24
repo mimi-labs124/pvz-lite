@@ -282,7 +282,24 @@ function frame(now) {
 }
 
 function update(dt) {
- // ── 天空陽光 + 自動收集 ──
+	// ── 除草機衝鋒邏輯 ──
+	for (const mower of state.lawnmowers) {
+		if (!mower.active || mower.used) continue;
+		mower.x += dt * 8; // 衝鋒速度
+		// 殺死同排所有殭屍
+		for (const z of state.zombies) {
+			if (z.row === mower.row && z.x <= mower.x + 0.5) {
+				z.hp = 0; // 直接秒殺
+			}
+		}
+		// 衝出畫面後標記完成
+		if (mower.x > cols + 1) {
+			mower.used = true;
+			mower.active = false;
+		}
+	}
+
+	// ── 天空陽光 + 自動收集 ──
  updateSkyDrops(state, dt, cols);
  updateSunDrops(state, dt);
 
@@ -381,22 +398,21 @@ function zombieTerritoryPush(state, dt) {
 }
 
 function checkGameEnd() {
- for (const z of state.zombies) {
- if (z.x <= 0) {
- // 除草機
- const mower = state.lawnmowers.find(m => m.row === z.row && !m.used);
- if (mower) {
- mower.used = true;
- state.zombies = state.zombies.filter(zz => zz.row !== z.row || zz.x > 0.5);
- sfx('mower');
- syncStats();
- return;
- }
- // 遊戲結束
- gameEnd(false);
- return;
- }
- }
+	for (const z of state.zombies) {
+		if (z.x <= 0) {
+			// 除草機 — 觸發衝鋒
+			const mower = state.lawnmowers.find(m => m.row === z.row && !m.used);
+			if (mower) {
+				mower.active = true; // 觸發衝鋒，由 update() 處理
+				sfx('mower');
+				syncStats();
+				return;
+			}
+			// 遊戲結束
+			gameEnd(false);
+			return;
+		}
+	}
 }
 
 // ═══════════════════════════════════════════════

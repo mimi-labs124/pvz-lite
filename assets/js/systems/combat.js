@@ -514,8 +514,8 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  }
 	}
 
-		// 殭屍到達左邊 → 死亡
-		if (z.x <= -0.2 && mower.used) return false;
+		// 殭屍到達左邊且除草機已用 → 標記死亡（由 checkGameEnd 處理遊戲結束）
+		if (z.x <= -0.2 && mower.used) { z.hp = 0; continue; }
 	}
 
   // 治療殭屍 (healer) — 治療附近殭屍
