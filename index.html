@@ -107,11 +107,21 @@
         <div id="modifierTag" class="modifier-tag">普通日</div>
       </div>
 
-      <!-- 混亂警報 -->
-      <div id="chaosAlert" class="chaos-alert"></div>
+ <!-- 混亂警報 -->
+ <div id="chaosAlert" class="chaos-alert"></div>
 
-      <!-- 遊戲棋盤 -->
-      <div id="board" class="board"></div>
+ <!-- 前線推進條 -->
+ <div id="frontlineGauge" class="frontline-gauge">
+ <div class="gauge-label plant-side">🌱 陣線</div>
+ <div class="gauge-track">
+ <div id="gaugeFill" class="gauge-fill" style="width:55%"></div>
+ <div id="gaugeMilestones" class="gauge-milestones"></div>
+ </div>
+ <div class="gauge-label zombie-side">🧟 殭屍潮</div>
+ </div>
+
+ <!-- 遊戲棋盤 -->
+ <div id="board" class="board"></div>
 
       <!-- 遊戲結束覆蓋 -->
       <div id="overlay" class="overlay">

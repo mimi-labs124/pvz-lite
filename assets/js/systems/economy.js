@@ -4,7 +4,9 @@ export function addSun(state, x, y, val = 25, fall = 0.6) {
  const diffMul = state.sunMultiplier || 1;
  const incomeBuff = 1 + (state.globalBuffs.sunIncome || 0);
  const tsunamiMult = (state.chaosHarnessed && state.harnessEffect?.type === 'tsunami') ? (state.harnessEffect.multiplier || 1) : 1;
- const sunValue = Math.round(val * incomeBuff * tsunamiMult * diffMul);
+ // 通脹：超過 500 陽光後收益遞減
+ const inflation = state.sun > 500 ? Math.max(0.4, 1 - (state.sun - 500) / 1500) : 1;
+ const sunValue = Math.max(5, Math.round(val * incomeBuff * tsunamiMult * diffMul * inflation));
  state.suns.push({ id: state.nextSunId++, x, y, targetY: y + Math.random() * 40 + 10, value: sunValue, life: 10, fall });
 }
 

@@ -24,7 +24,7 @@ import { renderEntities } from './render/entities.js';
 import {
  initTerritory, tryConquest, territoryWaveReward, autoConquestCheck,
  getPlayableCols, isCellPlayable, getCellTerrain, TERRAIN_TYPES,
- conquestCost, TERRITORY,
+ conquestCost, TERRITORY, updateConquestProgress,
 } from './systems/territory.js';
 import { actualPlantCost } from './systems/shop.js';
 import { sfx, audioState } from './audio.js';
@@ -271,6 +271,15 @@ function update(dt) {
  // ── 殭屍佔領地盤 ──
  zombieTerritoryPush(state, dt);
 
+ // ── 佔領進度更新 ──
+ const conquestResult = updateConquestProgress(state, dt);
+ if (conquestResult?.completed) {
+ sfx('plant');
+ showChaosAlert(conquestResult.msg);
+ territoryDirty = true;
+ if (conquestResult.advanced) createBoard();
+ }
+
  checkWaveComplete();
  syncStats();
  updateShop(state);
@@ -380,7 +389,6 @@ function handleCellClick(r, c) {
  sfx('plant');
  showChaosAlert(result.msg);
  territoryDirty = true;
- if (result.advanced) createBoard();
  syncStats();
  render();
  } else {
@@ -761,7 +769,7 @@ function updateTerritoryUI() {
  const terrain = getCellTerrain(state, r, c);
  const conquered = state.territory?.conquered?.has(cellKey(r, c));
 
- cell.classList.remove('unplayable', 'frontline', 'conquered');
+ cell.classList.remove('unplayable', 'frontline', 'conquered', 'conquering');
 
  if (!isCellPlayable(state, c)) {
  cell.classList.add('unplayable');
@@ -771,6 +779,23 @@ function updateTerritoryUI() {
 
  if (conquered) {
  cell.classList.add('conquered');
+ }
+
+ // 佔領進度中的格子
+ const conquering = state.territory?.conquering;
+ if (conquering && conquering.key === cellKey(r, c)) {
+ cell.classList.add('conquering');
+ // 更新佔領進度條
+ let progBar = cell.querySelector('.conquest-progress-bar');
+ if (!progBar) {
+ progBar = document.createElement('div');
+ progBar.className = 'conquest-progress-bar';
+ cell.appendChild(progBar);
+ }
+ progBar.style.width = `${(conquering.progress / conquering.total) * 100}%`;
+ } else {
+ const progBar = cell.querySelector('.conquest-progress-bar');
+ if (progBar) progBar.remove();
  }
 
  // 地形標記
@@ -829,6 +854,89 @@ function updateShop(state) {
  updateCellHighlights();
 }
 
+// ── 前線推進條 ──────────────────────────────────
+// 前線 = 佔領格的最遠列 + 可放置列數
+// 殭屍前線 = 最左殭屍的平均 x 位置
+// gauge 0% = 殭屍到最左邊, 100% = 植物佔領到最右
+
+function updateFrontlineGauge() {
+ const gaugeEl = document.getElementById('frontlineGauge');
+ if (!gaugeEl) return;
+
+ // 植物推進分數：佔領格數 + 可放置列進展
+ const playableCols = getPlayableCols(state);
+ const conqueredCount = state.territory?.conquered?.size || 0;
+ const maxConquest = rows * (cols - playableCols + 1); // 理論最大佔領格數
+ const plantScore = Math.min(1, (conqueredCount + playableCols - 3) / (cols * rows * 0.4));
+
+ // 殭屍威脅分數：殭屍越左越危險
+ let zombieThreat = 0;
+ if (state.zombies.length > 0) {
+ const avgX = state.zombies.reduce((sum, z) => sum + z.x, 0) / state.zombies.length;
+ zombieThreat = Math.max(0, 1 - avgX / cols);
+ }
+ // 殭屍數量加成
+ const countThreat = Math.min(1, state.zombies.length / 15);
+ zombieThreat = Math.min(1, zombieThreat * 0.6 + countThreat * 0.4);
+
+ // 合併：50% 是均衡狀態
+ const gauge = 0.5 + (plantScore - zombieThreat) * 0.5;
+ const clampedGauge = Math.max(0.05, Math.min(0.95, gauge));
+
+ const fillEl = document.getElementById('gaugeFill');
+ if (fillEl) {
+ fillEl.style.width = `${clampedGauge * 100}%`;
+ // 顏色：偏綠=安全 偏紅=危險
+ if (clampedGauge < 0.3) {
+ fillEl.style.background = 'linear-gradient(90deg, rgba(239,68,68,.7), rgba(251,146,60,.5))';
+ } else if (clampedGauge < 0.45) {
+ fillEl.style.background = 'linear-gradient(90deg, rgba(251,146,60,.6), rgba(250,204,21,.4))';
+ } else {
+ fillEl.style.background = 'linear-gradient(90deg, rgba(34,197,94,.6), rgba(34,211,238,.4))';
+ }
+ }
+
+ // 里程碑：殭屍威脅超過閾值時觸發精英波
+ const milestoneEl = document.getElementById('gaugeMilestones');
+ if (milestoneEl && milestoneEl.children.length === 0) {
+ // 建立 3 個里程碑標記
+ for (let i = 0; i < 3; i++) {
+ const m = document.createElement('div');
+ m.className = i === 2 ? 'gauge-milestone boss' : 'gauge-milestone';
+ milestoneEl.appendChild(m);
+ }
+ }
+
+ // 殭屍推到里程碑 → 觸發精英波
+ if (zombieThreat > 0.85 && !state._eliteTriggered) {
+ state._eliteTriggered = true;
+ triggerEliteWave();
+ }
+ if (zombieThreat < 0.5) {
+ state._eliteTriggered = false;
+ }
+}
+
+function triggerEliteWave() {
+ // 精英波：額外 3 隻更強的殭屍
+ sfx('boss');
+ showChaosAlert('⚠️ 殭屍潮湧！精英殭屍增援！');
+
+ for (let i = 0; i < 3; i++) {
+ const row = Math.floor(Math.random() * rows);
+ const kind = Math.random() < 0.3 ? 'bucket' : Math.random() < 0.5 ? 'armored' : 'cone';
+ const base = ZOMBIES[kind];
+ if (!base) continue;
+ const hpScale = (1 + (state.wave - 1) * 0.14) * 1.5; // 精英 HP +50%
+ state.zombies.push({
+ id: state.nextZombieId++, kind, row, x: cols - 0.1,
+ hp: Math.round(base.hp * hpScale), maxHp: Math.round(base.hp * hpScale),
+ speed: base.speed * 1.1, biteTimer: 0, slowTimer: 0,
+ angry: true, shield: kind === 'bucket', biteDmg: Math.round(base.bite * 1.25),
+ });
+ }
+}
+
 // ═══════════════════════════════════════════════
 // 同步數據 & Boss HP
 // ═══════════════════════════════════════════════
@@ -861,6 +969,9 @@ function syncStats() {
  } else {
  bossHpBarEl?.classList.remove('show');
  }
+
+ // 前線推進條
+ updateFrontlineGauge();
 }
 
 function updateComboDisplay() {

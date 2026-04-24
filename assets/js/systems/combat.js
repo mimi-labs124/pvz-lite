@@ -413,7 +413,35 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
         }
       }
  } else if (!z.frozen) {
+ // ── 跳跳殭屍：遇到植物跳過一格 ──
+ const zDef = ZOMBIES[z.kind];
+ if (zDef?.skipPlant && plant) {
+ // 跳過植物
+ z.x -= 1.1;
+ z.skipCooldown = 2; // 2 秒冷卻
+ } else if (z.skipCooldown > 0) {
+ z.skipCooldown -= dt;
+ z.x -= eff * dt * 0.5; // 冷卻中減速
+ } else {
  z.x -= eff * dt;
+ }
+
+ // ── 攻城殭屍：遠程攻擊（3 格距離射擊） ──
+ if (zDef?.ranged) {
+ z.rangedTimer = (z.rangedTimer || 0) + dt;
+ if (z.rangedTimer >= 2.0 && plant) {
+ z.rangedTimer = 0;
+ // 找 3 格內最近的植物攻擊
+ for (const [key, p] of state.plants) {
+ if (p.row === z.row && p.col < Math.floor(z.x) && p.col >= Math.floor(z.x) - 3) {
+ const rDmg = Math.round((z.biteDmg || 18) * 0.7);
+ p.hp -= rDmg;
+ if (p.hp <= 0) state.plants.delete(key);
+ break;
+ }
+ }
+ }
+ }
 
  // ── 地形效果（雙向：佔領 vs 未佔領） ──
  if (state.territory) {

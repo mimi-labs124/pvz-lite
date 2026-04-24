@@ -139,36 +139,56 @@ export function getCellTerrain(state, r, c) {
   return TERRAIN_TYPES[terrainId] || null;
 }
 
-// ── 嘗試佔領一格 ──────────────────────────────
+// ── 嘗試開始佔領一格（漸進式） ──────────────────
 export function tryConquest(state, row, col) {
  const playableCols = getPlayableCols(state);
  if (col >= playableCols) return { ok: false, msg: '尚未開放！繼續推進波次來解鎖' };
- if (state.territory.conquered.has(cellKey(row, col))) return { ok: false, msg: '已佔領' };
+ const key = cellKey(row, col);
+ if (state.territory.conquered.has(key)) return { ok: false, msg: '已佔領' };
+ // 如果該格正在佔領中
+ if (state.territory.conquering?.key === key) return { ok: false, msg: '正在佔領中...' };
 
  // 如果有特殊地形才需要花陽光佔領
  const terrain = getCellTerrain(state, row, col);
  if (!terrain) return { ok: false, msg: '這格沒有特殊地形，不需要佔領' };
 
-  const cost = conquestCost(state, col);
-  if (state.sun < cost) return { ok: false, msg: `陽光不足（需要 ${cost}）` };
+ const cost = conquestCost(state, col);
+ if (state.sun < cost) return { ok: false, msg: `陽光不足（需要 ${cost}）` };
 
-  state.sun -= cost;
-  state.territory.conquered.add(cellKey(row, col));
+ // 開始佔領：扣陽光、設置佔領進度
+ state.sun -= cost;
+ state.territory.conquering = { key, row, col, progress: 0, total: 3, terrain };
 
-  // 檢查是否整列都佔領了
-  let allConquered = true;
-  for (let r = 0; r < 5; r++) {
-    if (!state.territory.conquered.has(cellKey(r, col))) { allConquered = false; break; }
-  }
+ return { ok: true, msg: `開始佔領 ${terrain.emoji} ${terrain.name}（3 秒）`, started: true };
+}
 
-  if (allConquered) {
-    state.territory.frontline = col + 1;
-    return { ok: true, msg: `🗡️ 前線推進到第 ${col + 1} 列！`, advanced: true };
-  }
+// ── 更新佔領進度 ──────────────────────────────
+export function updateConquestProgress(state, dt) {
+ const c = state.territory?.conquering;
+ if (!c) return;
 
- // 告訴玩家佔領了什麼地形
- const terrainMsg = terrain ? `（${terrain.emoji} ${terrain.name}）` : '';
-  return { ok: true, msg: `佔領成功！${terrainMsg}`, advanced: false };
+ c.progress += dt;
+ if (c.progress >= c.total) {
+ // 佔領完成
+ state.territory.conquered.add(c.key);
+ const col = c.col;
+ const terrain = c.terrain;
+ state.territory.conquering = null;
+
+ // 檢查是否整列都佔領了
+ let allConquered = true;
+ for (let r = 0; r < 5; r++) {
+ if (!state.territory.conquered.has(cellKey(r, col))) { allConquered = false; break; }
+ }
+
+ if (allConquered) {
+ state.territory.frontline = Math.max(state.territory.frontline, col + 1);
+ return { completed: true, advanced: true, msg: `🗡️ 前線推進到第 ${col + 1} 列！` };
+ }
+
+ return { completed: true, advanced: false, msg: `佔領完成！（${terrain?.emoji} ${terrain?.name}）` };
+ }
+ return { completed: false, progress: c.progress / c.total };
 }
 
 // ── 波次結束時的領土獎勵 ──────────────────────

@@ -40,6 +40,8 @@ export const ZOMBIES = {
  armored: { emoji: '🛡️', hp: 350, speed: 0.13, reward: 40, bite: 28, className: 'armored' },
  dancer: { emoji: '💃', hp: 220, speed: 0.15, reward: 35, bite: 24, className: 'dancer' },
  backup: { emoji: '🕺', hp: 70, speed: 0.22, reward: 12, bite: 14, className: 'backup' },
+ sieger: { emoji: '🏹', hp: 280, speed: 0.12, reward: 40, bite: 18, className: 'sieger', ranged: true },
+ hopper: { emoji: '🐸', hp: 180, speed: 0.25, reward: 28, bite: 20, className: 'hopper', skipPlant: true },
 };
 
 // ── 植物進化路線 ──────────────────────────────
@@ -143,14 +145,16 @@ export const CONQUEST_DEFENSE_BONUS = 0.05;   // 佔領格防禦加成
 
 // ── 波次殭屍池 ─────────────────────────────────
 export function zombieKindForWave(w) {
-  const pool = ['normal'];
-  if (w >= 2) pool.push('cone');
-  if (w >= 3) pool.push('paper');
-  if (w >= 4) pool.push('fast');
-  if (w >= 5) pool.push('healer');
-  if (w >= 6) pool.push('bucket');
-  if (w >= 7) pool.push('splitter', 'armored');
-  if (w >= 9) pool.push('necro');
+ const pool = ['normal'];
+ if (w >= 2) pool.push('cone');
+ if (w >= 3) pool.push('paper');
+ if (w >= 4) pool.push('fast');
+ if (w >= 5) pool.push('healer');
+ if (w >= 6) pool.push('bucket');
+ if (w >= 7) pool.push('splitter', 'armored');
+ if (w >= 8) pool.push('hopper'); // 跳跳殭屍：跳過植物
+ if (w >= 9) pool.push('necro');
+ if (w >= 10) pool.push('sieger'); // 攻城殭屍：遠程攻擊
  if (w >= 11) pool.push('giant');
  if (w >= 13) pool.push('dancer');
  return pool[Math.floor(Math.random() * pool.length)];

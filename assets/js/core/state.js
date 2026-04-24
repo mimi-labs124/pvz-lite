@@ -91,11 +91,12 @@ export function createRunState() {
     shieldTimer: 0,
 
     // ── 領土系統 (Chaos Awakening) ──
-    territory: {
-      frontline: TERRITORY_START_COLS,
-      conquered: new Set(),
-      maxCol: 8,
-    },
+ territory: {
+ frontline: TERRITORY_START_COLS,
+ conquered: new Set(),
+ maxCol: 8,
+ conquering: null, // 當前佔領進度 { key, row, col, progress, total }
+ },
     conquestMode: false, // 是否正在佔領模式
  shovelMode: false, // 是否正在鏟子模式
  upgradeCount: 0, // 陽光升級次數

@@ -150,8 +150,29 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
   border-color: rgba(34, 211, 238, .3);
 }
 .cell.conquered::before {
-  content: '🗡️'; position: absolute; bottom: 2px; right: 3px;
-  font-size: 8px; opacity: .5; pointer-events: none;
+ content: '🗡️'; position: absolute; bottom: 2px; right: 3px;
+ font-size: 8px; opacity: .5; pointer-events: none;
+}
+.cell.conquering {
+ background: rgba(250, 204, 21, .12);
+ border-color: rgba(250, 204, 21, .4);
+ animation: conquest-pulse 1s ease-in-out infinite;
+}
+.cell.conquering::after {
+ content: '⚔️'; position: absolute; inset: 0;
+ display: grid; place-items: center;
+ font-size: 14px; opacity: .6; pointer-events: none;
+}
+@keyframes conquest-pulse {
+ 0%, 100% { box-shadow: inset 0 0 6px rgba(250, 204, 21, .15); }
+ 50% { box-shadow: inset 0 0 12px rgba(250, 204, 21, .35); }
+}
+.conquest-progress-bar {
+ position: absolute; bottom: 0; left: 0; height: 3px;
+ background: linear-gradient(90deg, var(--warn), var(--good));
+ border-radius: 2px;
+ transition: width .3s;
+ z-index: 5;
 }
 .terrain-marker {
   position: absolute; inset: 0;
@@ -344,7 +365,43 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
   transition: transform .25s, opacity .25s;
 }
 .chaos-alert.show {
-  transform: translateY(0); opacity: 1;
+ transform: translateY(0); opacity: 1;
+}
+
+/* ── Frontline Gauge (推進條) ─────────────── */
+.frontline-gauge {
+ display: flex; align-items: center; gap: 8px;
+ padding: 6px 4px; margin-bottom: 4px;
+}
+.gauge-label {
+ font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0;
+}
+.gauge-label.plant-side { color: var(--good); }
+.gauge-label.zombie-side { color: var(--bad); }
+.gauge-track {
+ flex: 1; height: 14px; position: relative;
+ background: rgba(239, 68, 68, .15); border-radius: 7px;
+ border: 1px solid rgba(255,255,255,.08); overflow: hidden;
+}
+.gauge-fill {
+ height: 100%; border-radius: 7px;
+ background: linear-gradient(90deg, rgba(34,197,94,.6), rgba(34,211,238,.4));
+ transition: width .5s ease;
+ position: relative; z-index: 2;
+}
+.gauge-milestones {
+ position: absolute; inset: 0; z-index: 1;
+ display: flex; justify-content: space-around; align-items: center;
+}
+.gauge-milestone {
+ width: 1px; height: 60%; background: rgba(255,255,255,.2);
+}
+.gauge-milestone.boss {
+ width: 2px; height: 80%; background: rgba(250,204,21,.5);
+}
+.gauge-milestone.boss::after {
+ content: '⚠'; position: absolute; top: -12px; left: -6px;
+ font-size: 10px;
 }
 
 /* ── Overlays ─────────────────────────────── */
