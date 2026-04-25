@@ -1126,10 +1126,14 @@ function syncStats() {
    battleLog(state.lastChaosMessage, 'danger');
    state.lastChaosMessage = null;
  }
- if (state.lastCleanupEvent) {
-   battleLog(state.lastCleanupEvent, 'info');
-   state.lastCleanupEvent = null;
- }
+if (state.lastCleanupEvent) {
+  battleLog(state.lastCleanupEvent, 'info');
+  state.lastCleanupEvent = null;
+}
+if (state.lastMinerEvent) {
+  battleLog(state.lastMinerEvent, 'danger');
+  state.lastMinerEvent = null;
+}
 }
 
 function updateComboDisplay() {

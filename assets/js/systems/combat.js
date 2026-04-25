@@ -27,6 +27,7 @@ export function triggerBomb(state, plant, sfx) {
   const baseDmg = 230 + (evo.bonusDmg || 0);
   state.booms.push({ row: plant.row, col: plant.col, life: 0.22 });
   state.zombies.forEach(z => {
+    if (z.digging) return; // miner invulnerable while digging
     if (Math.abs(z.row - plant.row) <= (evo.hitAllRows ? rows : 1) && Math.abs(z.x - plant.col) <= radius) {
       z.hp -= baseDmg;
     }
@@ -154,6 +155,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
           return false;
         });
         for (const z of targets) {
+          if (z.digging) continue; // miner invulnerable while digging
           const stolen = Math.round(z.maxHp * stealRate * 0.1);
           z.hp -= stolen;
           p.hp = Math.min(p.maxHp, p.hp + Math.round(stolen * 0.5));
@@ -250,23 +252,27 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
  const rate = 2.2 / (attackSpeedBuff * fertileBuff * terrSpeedMult);
  if (targets.length > 0 && p.attackTimer >= rate) {
  p.attackTimer = 0;
- const target = targets.reduce((a, b) => a.x > b.x ? a : b);
- const baseDmg = 30 + (evo.bonusDmg || 0);
- const directDmg = evo.freezeSplash ? baseDmg + 15 : baseDmg;
- // Direct hit
- target.hp -= directDmg;
- // Splash
- const splashRowRange = evo.splashRows || 1;
- const splashMult = evo.splashRows >= 3 ? 0.6 : evo.splashRows >= 2 ? 0.5 : 0.4;
- state.zombies.forEach(z => {
- if (z !== target && Math.abs(z.row - target.row) <= splashRowRange && Math.abs(z.x - target.x) <= 0.9) {
- z.hp -= Math.floor(baseDmg * splashMult);
- // Lv3 冰西瓜濺射附帶緩速
- if (evo.freezeSplash) z.slowTimer = Math.max(z.slowTimer || 0, 1.5);
- }
- });
- state.booms.push({ row: target.row, col: Math.round(target.x), life: 0.35, melon: true });
- sfx('boom');
+const target = targets.reduce((a, b) => a.x > b.x ? a : b);
+    // Miner invulnerable while digging — skip damage, but still show boom
+    if (!target.digging) {
+      const baseDmg = 30 + (evo.bonusDmg || 0);
+      const directDmg = evo.freezeSplash ? baseDmg + 15 : baseDmg;
+      // Direct hit
+      target.hp -= directDmg;
+      // Splash
+      const splashRowRange = evo.splashRows || 1;
+      const splashMult = evo.splashRows >= 3 ? 0.6 : evo.splashRows >= 2 ? 0.5 : 0.4;
+      state.zombies.forEach(z => {
+        if (z.digging) return; // miner invulnerable while digging
+        if (z !== target && Math.abs(z.row - target.row) <= splashRowRange && Math.abs(z.x - target.x) <= 0.9) {
+          z.hp -= Math.floor(baseDmg * splashMult);
+          // Lv3 冰西瓜濺射附帶緩速
+          if (evo.freezeSplash) z.slowTimer = Math.max(z.slowTimer || 0, 1.5);
+        }
+      });
+    }
+    state.booms.push({ row: target.row, col: Math.round(target.x), life: 0.35, melon: true });
+    sfx('boom');
  }
  }
 
@@ -278,6 +284,7 @@ export function updatePlantsCombat(state, dt, sfx, addSun, removePlant) {
  p.attackTimer = 0;
  state.zombies.forEach(z => {
  if (z.row === p.row && Math.abs(z.x - p.col) < 0.55) {
+ if (z.digging) return; // miner invulnerable while digging
  z.hp -= baseDmg;
  // Lv2+ 附帶減速
  if (evo.slowOnHit) z.slowTimer = Math.max(z.slowTimer || 0, 1.2);
@@ -296,7 +303,7 @@ export function updatePeasCombat(state, dt, sfx) {
   state.peas = state.peas.filter(p => p.x < cols + 0.4);
 
   for (const pea of state.peas) {
-    const hit = state.zombies.find(z => z.row === pea.row && Math.abs(z.x - pea.x) < 0.28);
+    const hit = state.zombies.find(z => !z.digging && z.row === pea.row && Math.abs(z.x - pea.x) < 0.28);
     if (hit) {
       // Combo system: register hit
       registerComboHit(state);
@@ -422,12 +429,34 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  const zDef = ZOMBIES[z.kind];
  const isHopper = zDef?.skipPlant;
  const isSieger = zDef?.ranged;
+ const isMiner = zDef?.tunnel;
 
  // ── 跳跳殭屍：遇到植物跳過一格 ──
  if (isHopper && plant && (z.skipCooldown || 0) <= 0) {
  z.x -= 1.1; // 跳到植物後方
  z.skipCooldown = 2; // 2 秒冷卻
  plant = null; // 跳過後不再咬
+ }
+
+ // ── 礦工殭屍：挖地道避開植物 ──
+ if (isMiner && plant && !z.digging && (z.digCooldown || 0) <= 0) {
+   z.digging = true;
+   z.digTimer = 1.5;
+ }
+ if (isMiner && z.digging) {
+   z.digTimer -= dt;
+   if (z.digTimer <= 0) {
+     // Tunnel to a random other row, deep in back
+     const newRow = (z.row + 1 + Math.floor(Math.random() * (rows - 1))) % rows;
+     z.row = newRow;
+     z.x = 7 + Math.random() * 1.5; // col 7-8.5
+     z.digging = false;
+     z.digCooldown = 8;
+     state.lastMinerEvent = '⛏️ 礦工挖到後方了！';
+   }
+   // Skip normal bite/move while digging
+   if (!z.frozen) z.x -= eff * dt * 0.1; // barely moves while digging
+   continue;
  }
 
  // ── 攻城殭屍：遠程攻擊（3 格距離射擊） ──
@@ -474,14 +503,17 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  z.hp -= Math.round(biteDmg * reflect);
  }
  }
- } else if (!z.frozen) {
- // 普通移動
- if (isHopper && (z.skipCooldown || 0) > 0) {
- z.skipCooldown -= dt;
- z.x -= eff * dt * 0.5; // 冷卻中減速
- } else {
- z.x -= eff * dt;
- }
+} else if (!z.frozen) {
+    // 普通移動
+    if (isHopper && (z.skipCooldown || 0) > 0) {
+      z.skipCooldown -= dt;
+      z.x -= eff * dt * 0.5; // 冷卻中減速
+    } else if (isMiner && (z.digCooldown || 0) > 0) {
+      z.digCooldown -= dt;
+      z.x -= eff * dt;
+    } else {
+      z.x -= eff * dt;
+    }
  }
 
  // ── 地形效果（雙向：佔領 vs 未佔領） ──

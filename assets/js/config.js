@@ -51,6 +51,7 @@ export const ZOMBIES = {
  backup: { emoji: '🕺', hp: 70, speed: 0.22, reward: 12, bite: 14, className: 'backup' },
  sieger: { emoji: '🏹', hp: 280, speed: 0.12, reward: 40, bite: 18, className: 'sieger', ranged: true },
  hopper: { emoji: '🐸', hp: 180, speed: 0.25, reward: 28, bite: 20, className: 'hopper', skipPlant: true },
+  miner:  { emoji: '⛏️', hp: 200, speed: 0.18, reward: 30, bite: 22, className: 'miner', tunnel: true },
 };
 
 // ── 植物進化路線 ──────────────────────────────
@@ -179,6 +180,7 @@ export function zombieKindForWave(w) {
  if (w >= 9) pool.push('necro');
  if (w >= 10) pool.push('sieger'); // 攻城殭屍：遠程攻擊
  if (w >= 11) pool.push('giant');
+ if (w >= 12) pool.push('miner');
  if (w >= 13) pool.push('dancer');
  return pool[Math.floor(Math.random() * pool.length)];
 }

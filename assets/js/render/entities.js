@@ -66,8 +66,9 @@ export function renderEntities(boardEl, state) {
 		let className = `zombie ${ZOMBIES[z.kind]?.className || 'normal'}`;
 		if (z.angry) className += ' angry';
 		if (z.frozen) className += ' frozen';
-		if (z.undead) className += ' undead';
-		if (z.burning) className += ' burning';
+if (z.undead) className += ' undead';
+ if (z.digging) className += ' digging';
+ if (z.burning) className += ' burning';
 		// Mark zombies on unconquered land with visual indicator
 		const zCol = Math.round(z.x);
 		const zKey = `${z.row}-${zCol}`;

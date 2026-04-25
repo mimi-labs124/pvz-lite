@@ -812,3 +812,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 	border-radius: 2px; transition: width .3s; z-index: 5;
 }
 
+/* ── Miner Zombie ── */
+.zombie.miner { background: rgba(180, 83, 9, .25); border-color: rgba(180, 83, 9, .4); }
+.zombie.digging { filter: brightness(0.5) sepia(0.6); animation: dig-shake 0.3s infinite; }
+@keyframes dig-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
+/* ── Miner Zombie ── */
+.zombie.miner { background: rgba(180, 83, 9, .25); border-color: rgba(180, 83, 9, .4); }
+.zombie.digging { filter: brightness(0.5) sepia(0.6); animation: dig-shake 0.3s infinite; }
+@keyframes dig-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
