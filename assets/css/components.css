@@ -1,0 +1,465 @@
+/* ── Shop / Deck Cards ────────────────────── */
+.shop { display: grid; gap: 6px; }
+.card {
+ position: relative; padding: 8px 10px;
+ border: 1px solid var(--line); border-radius: 12px;
+ background: rgba(31, 41, 55, .8); cursor: pointer;
+ overflow: hidden; transition: all .15s;
+ min-height: 52px;
+}
+.card:hover { border-color: var(--accent); }
+.card.selected { outline: 2px solid var(--good); box-shadow: 0 0 12px rgba(34, 197, 94, .2); }
+.card.disabled { filter: grayscale(.85); opacity: .55; cursor: not-allowed; }
+.card .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.card .cost { font-size: 12px; }
+.card .cost.bad { color: #fca5a5; }
+.card .cost.buff { color: #fde68a; }
+.cooldown {
+  position: absolute; inset: 0;
+  background: rgba(15, 23, 42, .68); transform-origin: top; pointer-events: none;
+  z-index: 1;
+}
+.cooltxt { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; z-index: 2; }
+.muted { color: var(--muted); font-size: 12px; }
+
+/* ── Spell Bar ─────────────────────────────── */
+.spell-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+.spell-slot {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(31, 41, 55, .8); cursor: pointer; min-width: 60px;
+  transition: all .15s;
+}
+.spell-slot.ready { border-color: var(--accent); box-shadow: 0 0 8px var(--glow); }
+.spell-slot.ready:hover { background: rgba(139, 92, 246, .18); }
+.spell-slot.cooldown { cursor: not-allowed; }
+.spell-cooldown-overlay {
+  position: absolute; inset: 0;
+  background: rgba(15, 23, 42, .68); transform-origin: top; pointer-events: none;
+  z-index: 1; border-radius: 10px;
+  transform: scaleY(0); transition: transform .1s;
+}
+.spell-emoji { font-size: 20px; position: relative; z-index: 2; }
+.spell-name { font-size: 10px; font-weight: 700; margin-top: 2px; position: relative; z-index: 2; }
+.spell-cd { font-size: 10px; color: var(--warn); position: relative; z-index: 2; }
+/* ── Boss HP Bar — fixed 不佔位 ── */
+.boss-hp-bar {
+ visibility: hidden; opacity: 0; height: 28px; border-radius: 14px;
+ background: rgba(15, 23, 42, .8); border: 1px solid rgba(220, 38, 38, .35);
+ overflow: hidden; margin-bottom: 0; position: absolute;
+ top: 0; left: 0; right: 0; z-index: 70;
+ transition: opacity .3s, visibility .3s;
+}
+.boss-hp-bar.show { visibility: visible; opacity: 1; }
+.boss-hp-bar.enraged {
+	border-color: rgba(239, 68, 68, .9);
+	animation: bossBarRage 0.5s infinite alternate;
+}
+@keyframes bossBarRage {
+	from { box-shadow: 0 0 6px rgba(239, 68, 68, .5); }
+	to { box-shadow: 0 0 18px rgba(239, 68, 68, .9), 0 0 40px rgba(239, 68, 68, .3); }
+}
+.boss-hp-fill {
+	height: 100%; width: 100%; background: linear-gradient(90deg, #dc2626, #f97316);
+	border-radius: 14px; transition: width .3s;
+}
+.boss-shield-fill {
+	position: absolute; top: 0; left: 0; height: 100%;
+	background: linear-gradient(90deg, #3b82f6, #60a5fa);
+	border-radius: 14px; opacity: .55; transition: width .3s;
+	z-index: 1;
+}
+.boss-hp-fill { position: relative; z-index: 2; }
+.boss-hp-text {
+ position: absolute; inset: 0; display: grid; place-items: center;
+ font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000;
+}
+
+/* ── Boss Entity 視覺 ── */
+.boss-shield-bar {
+ position: absolute; bottom: -6px; left: 2px; right: 2px; height: 4px;
+ background: rgba(30, 64, 175, .4); border-radius: 2px; overflow: hidden;
+}
+.boss-shield-bar i {
+ display: block; height: 100%; background: linear-gradient(90deg, #60a5fa, #3b82f6);
+ border-radius: 2px; transition: width .2s;
+}
+.boss-name {
+ position: absolute; bottom: -16px; left: 0; right: 0; text-align: center;
+ font-size: 9px; font-weight: 700; color: #fbbf24;
+ text-shadow: 0 1px 2px #000; white-space: nowrap;
+}
+@keyframes bossRage {
+ from { transform: scale(1); filter: brightness(1); }
+ to { transform: scale(1.06); filter: brightness(1.3); }
+}
+/* ── Battle Status ────────────────────────── */
+.battle-status {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px; padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px;
+  background: linear-gradient(90deg, rgba(15, 23, 42, .95), rgba(30, 41, 59, .88));
+}
+.modifier-tag {
+  padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(59, 130, 246, .16); font-size: 11px; font-weight: 800; white-space: nowrap;
+}
+.modifier-tag.solar     { background: rgba(250, 204, 21, .18); border-color: rgba(250, 204, 21, .35); color: #fde68a; }
+.modifier-tag.fog       { background: rgba(148, 163, 184, .16); border-color: rgba(148, 163, 184, .32); color: #e2e8f0; }
+.modifier-tag.bloodmoon { background: rgba(127, 29, 29, .28); border-color: rgba(248, 113, 113, .45); color: #fecaca; }
+.modifier-tag.chaos     { background: rgba(249, 115, 22, .22); border-color: rgba(249, 115, 22, .45); color: #fed7aa; }
+.battle-status.alert  { outline: 2px solid rgba(251, 191, 36, .45); }
+.battle-status.danger { outline: 2px solid rgba(239, 68, 68, .45); }
+.battle-status.solar      { background: linear-gradient(90deg, rgba(120, 53, 15, .92), rgba(113, 63, 18, .78)); }
+.battle-status.fog         { background: linear-gradient(90deg, rgba(30, 41, 59, .95), rgba(51, 65, 85, .88)); }
+.battle-status.bloodmoon   { background: linear-gradient(90deg, rgba(69, 10, 10, .95), rgba(127, 29, 29, .86)); }
+.battle-status.chaos       { background: linear-gradient(90deg, rgba(69, 26, 3, .95), rgba(120, 53, 15, .86)); }
+.battle-status.boss        { background: linear-gradient(90deg, rgba(69, 10, 10, .95), rgba(127, 29, 29, .86)); outline: 2px solid rgba(220, 38, 38, .55); }
+/* ── Chaos Alert — fixed positioning 不跳動 ── */
+.chaos-alert {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 80;
+  text-align: center; padding: 8px 12px;
+  background: linear-gradient(90deg, rgba(249, 115, 22, .22), rgba(139, 92, 246, .22));
+  border-bottom: 1px solid rgba(249, 115, 22, .4);
+  font-weight: 700; font-size: 13px; color: #fed7aa;
+  pointer-events: none;
+  transform: translateY(-100%); opacity: 0;
+  transition: transform .25s, opacity .25s;
+}
+.chaos-alert.show {
+ transform: translateY(0); opacity: 1;
+}
+/* ── Battle Log (戰鬥日誌) ─────────────── */
+.battle-log {
+ position: absolute; bottom: 8px; left: 8px; right: 8px;
+ z-index: 70; pointer-events: none;
+ display: flex; flex-direction: column-reverse; gap: 2px;
+ max-height: 110px; overflow: hidden;
+}
+.log-entry {
+ padding: 2px 8px; border-radius: 3px;
+ background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(2px);
+ font-size: 11px; color: #d4d4d8; white-space: nowrap;
+ overflow: hidden; text-overflow: ellipsis;
+ animation: logFadeIn 0.2s ease;
+}
+.log-ts { color: #71717a; margin-right: 4px; font-size: 10px; }
+.log-danger { color: #fca5a5; border-left: 2px solid #ef4444; }
+.log-success { color: #86efac; border-left: 2px solid #22c55e; }
+.log-boss { color: #fbbf24; border-left: 2px solid #f59e0b; font-weight: 600; }
+@keyframes logFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+/* ── Frontline Gauge (推進條) ─────────────── */
+.frontline-gauge {
+ display: flex; align-items: center; gap: 8px;
+ padding: 6px 4px; margin-bottom: 4px;
+}
+.gauge-label {
+ font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0;
+}
+.gauge-label.plant-side { color: var(--good); }
+.gauge-label.zombie-side { color: var(--bad); }
+.gauge-track {
+ flex: 1; height: 14px; position: relative;
+ background: rgba(239, 68, 68, .15); border-radius: 7px;
+ border: 1px solid rgba(255,255,255,.08); overflow: hidden;
+}
+.gauge-fill {
+ height: 100%; border-radius: 7px;
+ background: linear-gradient(90deg, rgba(34,197,94,.6), rgba(34,211,238,.4));
+ transition: width .5s ease;
+ position: relative; z-index: 2;
+}
+.gauge-milestones {
+ position: absolute; inset: 0; z-index: 1;
+ display: flex; justify-content: space-around; align-items: center;
+}
+.gauge-milestone {
+ width: 1px; height: 60%; background: rgba(255,255,255,.2);
+}
+.gauge-milestone.boss {
+ width: 2px; height: 80%; background: rgba(250,204,21,.5);
+}
+.gauge-milestone.boss::after {
+ content: '⚠'; position: absolute; top: -12px; left: -6px;
+ font-size: 10px;
+}
+/* ── Overlays ─────────────────────────────── */
+.overlay {
+  position: absolute; inset: 0; display: none; place-items: center;
+  background: rgba(2, 6, 23, .82); z-index: 100;
+}
+.overlay.show { display: grid; }
+.dialog {
+  background: rgba(15, 23, 42, .96); border: 1px solid var(--line);
+  border-radius: 22px; padding: 24px; text-align: center;
+  width: min(92vw, 440px);
+}
+.dialog h2 { margin-top: 0; color: var(--text); }
+.dialog button {
+  margin-top: 16px; padding: 12px 28px; font-size: 16px;
+  background: linear-gradient(90deg, var(--accent), var(--chaos));
+  border: none; border-radius: 12px; color: #fff; font-weight: 800;
+}
+.dialog button:hover { transform: scale(1.03); }
+
+/* ── Draft Overlay ────────────────────────── */
+.draft-overlay { z-index: 110; }
+.draft-dialog {
+  background: rgba(15, 23, 42, .97); border: 1px solid var(--accent);
+  border-radius: 22px; padding: 24px; text-align: center;
+  width: min(95vw, 700px);
+  box-shadow: 0 0 40px var(--glow);
+}
+.draft-title { color: var(--accent2); font-size: 20px; margin-bottom: 18px; }
+.draft-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+.draft-card {
+  padding: 18px 14px; border: 1px solid var(--line); border-radius: 16px;
+  background: rgba(31, 41, 55, .85); cursor: pointer;
+  transition: all .2s; text-align: center;
+}
+.draft-card:hover {
+  border-color: var(--accent); transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--glow);
+}
+.draft-badge {
+  display: inline-block; padding: 3px 8px; border-radius: 999px;
+  background: rgba(139, 92, 246, .18); border: 1px solid rgba(139, 92, 246, .3);
+  font-size: 10px; font-weight: 700; color: var(--accent2); margin-bottom: 8px;
+}
+.draft-emoji { font-size: 42px; margin: 10px 0; }
+.draft-name { font-weight: 800; font-size: 15px; margin-bottom: 6px; }
+.draft-desc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.draft-cost, .draft-cd { font-size: 11px; color: var(--warn); }
+
+/* ═══════════════════════════════════════════════
+   Chaos Awakening: Relic Overlay
+   ═══════════════════════════════════════════════ */
+.relic-overlay { z-index: 120; }
+.relic-dialog {
+  background: rgba(15, 23, 42, .97); border: 2px solid var(--relic);
+  border-radius: 22px; padding: 24px; text-align: center;
+  width: min(95vw, 750px);
+  box-shadow: 0 0 50px rgba(245, 158, 11, .25);
+}
+.relic-title { color: var(--relic); font-size: 22px; margin-bottom: 18px; }
+.relic-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+.relic-card {
+  padding: 20px 14px; border: 2px solid var(--line); border-radius: 16px;
+  background: rgba(31, 41, 55, .85); cursor: pointer;
+  transition: all .2s; text-align: center; position: relative;
+}
+.relic-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(245, 158, 11, .25);
+}
+.relic-rarity {
+  display: inline-block; padding: 3px 8px; border-radius: 999px;
+  background: rgba(245, 158, 11, .15); border: 1px solid rgba(245, 158, 11, .3);
+  font-size: 10px; font-weight: 700; margin-bottom: 8px;
+}
+.relic-emoji { font-size: 46px; margin: 10px 0; }
+.relic-name { font-weight: 800; font-size: 16px; margin-bottom: 6px; }
+.relic-desc { font-size: 12px; color: var(--muted); }
+
+/* ── Relic List (sidebar) ── */
+.relic-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.relic-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; border-radius: 999px;
+  background: rgba(245, 158, 11, .12); border: 1px solid rgba(245, 158, 11, .3);
+  font-size: 11px; font-weight: 700; color: #fde68a;
+}
+.relic-badge.rare {
+  background: rgba(139, 92, 246, .12); border-color: rgba(139, 92, 246, .3); color: var(--accent2);
+}
+.relic-badge.legendary {
+  background: rgba(245, 158, 11, .18); border-color: rgba(245, 158, 11, .45); color: #f59e0b;
+  animation: legendary-glow 2s ease-in-out infinite;
+}
+@keyframes legendary-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, .2); }
+  50% { box-shadow: 0 0 10px rgba(245, 158, 11, .4); }
+}
+/* ── Pill variants ────────────────────────── */
+.pill.live   { border-color: rgba(34, 197, 94, .35); }
+.pill.warning { border-color: rgba(251, 191, 36, .45); }
+.pill.danger { border-color: rgba(239, 68, 68, .45); }
+.sun-pill   { border-color: rgba(250, 204, 21, .35); }
+.kill-pill  { border-color: rgba(239, 68, 68, .25); }
+.wave-pill  { border-color: rgba(59, 130, 246, .25); }
+.deck-pill  { border-color: rgba(139, 92, 246, .35); }
+.mower-pill { border-color: rgba(239, 68, 68, .2); }
+.run-pill   { border-color: rgba(249, 115, 22, .25); font-size: 11px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.mobile-bar { display: none; }
+/* ── Plant Tooltip (hover) ── */
+#plantTooltip {
+  position: fixed; pointer-events: none; z-index: 9999;
+  background: rgba(10, 10, 20, 0.96); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 10px 12px; font-size: 11px; min-width: 200px;
+  max-width: 260px; box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  display: none; flex-direction: column; gap: 6px;
+}
+#plantTooltip.show { display: flex; }
+#plantTooltip .tt-header { display: flex; align-items: center; gap: 8px; }
+#plantTooltip .tt-emoji { font-size: 22px; }
+#plantTooltip .tt-name { font-weight: 700; font-size: 13px; }
+#plantTooltip .tt-lv { color: var(--accent2); font-size: 10px; margin-left: 4px; }
+#plantTooltip .tt-hp-wrap { display: flex; align-items: center; gap: 6px; }
+#plantTooltip .tt-hp-bar { flex: 1; height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden; }
+#plantTooltip .tt-hp-bar i { display: block; height: 100%; background: var(--good); transition: width .3s; }
+#plantTooltip .tt-hp-text { font-size: 10px; color: var(--muted); min-width: 42px; text-align: right; }
+#plantTooltip .tt-stats { font-size: 10px; color: var(--muted); }
+#plantTooltip .tt-special { font-size: 10px; color: var(--warn); }
+#plantTooltip .terrain-tag { font-size: 9px; padding: 1px 4px; border-radius: 4px; background: rgba(255,255,255,.08); margin-left: 4px; }
+#plantTooltip .tt-cost { font-size: 10px; color: var(--accent2); margin-top: 2px; }
+/* ── Plant Info Panel (deprecated) ── */
+.plant-info-panel {
+ display: flex; flex-direction: column; gap: 4px;
+ font-size: 11px; max-height: 180px; overflow-y: auto;
+}
+.plant-info-item {
+ display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+ border-radius: 8px; background: rgba(255,255,255,.04);
+}
+.pi-emoji { font-size: 16px; flex-shrink: 0; }
+.pi-detail { flex: 1; min-width: 0; }
+.pi-name { display: block; font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi-lv { color: var(--accent2); font-size: 9px; }
+.pi-hp-bar { display: block; height: 3px; background: rgba(255,255,255,.1); border-radius: 2px; margin: 2px 0; }
+.pi-hp-bar i { display: block; height: 100%; background: var(--good); border-radius: 2px; transition: width .3s; }
+.pi-upgrade { font-size: 9px; color: var(--warn); }
+.terrain-tag { font-size: 10px; margin-left: 4px; }
+/* ── Shovel Cursor ── */
+.board.shovel-cursor { cursor: crosshair; }
+.board.shovel-cursor .cell { cursor: crosshair; }
+
+/* ── Difficulty Selector ── */
+.diff-select {
+ padding: 6px 8px; font-size: 12px; font-weight: 700;
+ border: 1px solid var(--line); border-radius: 12px;
+ background: var(--panel); color: var(--text);
+ cursor: pointer;
+}
+.diff-select:hover { border-color: var(--accent); }
+/* ── Draft Reroll Button ── */
+.draft-reroll-btn {
+  display: inline-block; margin-top: 14px; padding: 10px 24px;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  border: 2px solid rgba(251, 146, 60, .6); border-radius: 12px;
+  color: #fff; font-weight: 800; font-size: 14px; cursor: pointer;
+  transition: all .15s; text-shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+.draft-reroll-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, .4);
+}
+/* ── XP Progress Bar Items ── */
+.xp-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px; border-radius: 8px;
+  background: rgba(31, 41, 55, .6); margin-bottom: 3px;
+}
+.xp-emoji { font-size: 14px; flex-shrink: 0; }
+.xp-info { flex: 1; min-width: 0; }
+.xp-name {
+  display: flex; justify-content: space-between;
+  font-size: 10px; font-weight: 700; color: var(--text);
+}
+.xp-name small { color: var(--accent2); }
+.xp-progress {
+  display: block; height: 4px; margin-top: 2px;
+  background: rgba(0, 0, 0, .35); border-radius: 999px; overflow: hidden;
+}
+.xp-fill {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--territory));
+  border-radius: 999px; transition: width .3s;
+}
+
+/* ── Combo Pill ── */
+.combo-pill {
+  background: linear-gradient(90deg, rgba(249, 115, 22, .22), rgba(239, 68, 68, .18)) !important;
+  border-color: rgba(249, 115, 22, .5) !important;
+  color: #fed7aa !important;
+  animation: combo-pulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes combo-pulse {
+  from { box-shadow: 0 0 4px rgba(249, 115, 22, .3); }
+  to { box-shadow: 0 0 12px rgba(249, 115, 22, .5); }
+}
+/* ── Magnet Plant ── */
+.plant.magnet { background: rgba(99, 102, 241, .22); }
+
+/* ── Armored Zombie ── */
+.zombie.armored { background: rgba(99, 102, 241, .25); }
+
+/* ── Shovel & Speed buttons ── */
+.shovel-btn { background: rgba(180, 83, 9, .18); border-color: rgba(180, 83, 9, .35); font-size: 14px; }
+.shovel-btn.active { outline: 2px solid rgba(245, 158, 11, .7); background: rgba(180, 83, 9, .35); }
+.speed-btn { background: rgba(59, 130, 246, .15); border-color: rgba(59, 130, 246, .3); font-size: 14px; }
+.speed-btn.active { outline: 2px solid rgba(59, 130, 246, .6); background: rgba(59, 130, 246, .25); }
+.speed-pill { background: rgba(59, 130, 246, .15) !important; border-color: rgba(59, 130, 246, .35) !important; color: #93c5fd !important; }
+/* ── End Stats Grid ── */
+.end-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; text-align: left; }
+.end-stats .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.end-stats .stat-val { font-size: 20px; font-weight: 900; }
+.card .upgrade-hint { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ── Upgrade flash on plant ── */
+.plant.upgrade-flash { animation: upgrade-flash .5s ease-out; }
+@keyframes upgrade-flash { 0% { box-shadow: inset 0 0 30px rgba(250, 204, 21, .6); } 100% { box-shadow: inset 0 0 12px rgba(250, 204, 21, .3); } }
+/* ── Shovel cursor ── */
+.board.shovel-cursor { cursor: crosshair; }
+.board.shovel-cursor .cell:hover { outline: 2px solid #ef4444; }
+
+/* ── Shovel button active ── */
+.shovel-btn.active {
+	background: rgba(239, 68, 68, .25) !important;
+	border-color: #ef4444 !important;
+	color: #fca5a5 !important;
+}
+/* ── Speed button active ── */
+.speed-btn.active {
+	background: rgba(34, 211, 238, .25) !important;
+	border-color: #22d3ee !important;
+}
+/* ── Upgrade hint on plant ── */
+.plant .upgrade-hint {
+	position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+	font-size: 8px; white-space: nowrap; opacity: .7;
+	text-shadow: 0 1px 2px #000; pointer-events: none;
+}
+.plant .upgrade-hint.ready {
+	color: #4ade80; opacity: 1; animation: upgrade-ready-pulse 1.2s infinite;
+}
+.plant .upgrade-hint.max {
+	color: #facc15; opacity: 1;
+}
+@keyframes upgrade-ready-pulse {
+	0%, 100% { text-shadow: 0 0 4px rgba(74, 222, 128, .4); }
+	50% { text-shadow: 0 0 10px rgba(74, 222, 128, .8); }
+}
+/* ── Zombie unconquered buff indicator ── */
+.zombie.unconquered-buff {
+	outline: 2px solid rgba(251, 146, 60, .7) !important;
+	box-shadow: 0 0 10px rgba(251, 146, 60, .4);
+}
+/* ── Territory auto-conquest progress bar ── */
+.cell .auto-conquest-bar {
+	position: absolute; bottom: 0; left: 0; height: 3px;
+	background: linear-gradient(90deg, var(--territory), var(--good));
+	border-radius: 2px; transition: width .3s; z-index: 5;
+/* ── Miner Zombie ── */
+.zombie.miner { background: rgba(180, 83, 9, .25); border-color: rgba(180, 83, 9, .4); }
+.zombie.digging { filter: brightness(0.5) sepia(0.6); animation: dig-shake 0.3s infinite; }
+@keyframes dig-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
+/* ── Miner Zombie ── */
+.zombie.miner { background: rgba(180, 83, 9, .25); border-color: rgba(180, 83, 9, .4); }
+.zombie.digging { filter: brightness(0.5) sepia(0.6); animation: dig-shake 0.3s infinite; }

@@ -1,0 +1,80 @@
+/* ═══════════════════════════════════════════════
+   PVZ Lite: Chaos Awakening — 暗黑肉鴿主題
+   ═══════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+  --bg1: #070b14; --bg2: #0f1729;
+  --panel: rgba(15, 23, 42, .92);
+  --line: rgba(255, 255, 255, .1);
+  --text: #e2e8f0; --muted: #94a3b8;
+  --good: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+  --accent: #8b5cf6; --accent2: #a78bfa;
+  --chaos: #f97316; --boss: #dc2626;
+  --glow: rgba(139, 92, 246, .25);
+  --territory: #22d3ee; --relic: #f59e0b; --harness: #34d399;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(180deg, var(--bg1), var(--bg2));
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+.wrap { max-width: 1380px; margin: 0 auto; padding: 12px; }
+
+/* ── Top Bar ──────────────────────────────── */
+.topbar {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; margin-bottom: 10px;
+}
+.title {
+  font-size: clamp(20px, 4vw, 28px); font-weight: 800;
+  background: linear-gradient(90deg, var(--accent), var(--chaos), var(--territory));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stats { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill, button, select, input[type=range] {
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); color: var(--text);
+}
+.pill, button, select { padding: 8px 12px; font-weight: 700; font-size: 13px; }
+button { cursor: pointer; transition: all .15s; }
+button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent); }
+
+/* ── Layout ───────────────────────────────── */
+.layout { display: grid; grid-template-columns: 280px 1fr; gap: 12px; }
+.panel {
+ background: var(--panel); border: 1px solid var(--line);
+ border-radius: 18px; padding: 12px;
+ box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+}
+
+/* ── Sidebar ──────────────────────────────── */
+.sidebar { max-height: calc(100vh - 80px); overflow-y: auto; min-width: 0; }
+.section-title {
+  font-weight: 800; font-size: 14px; margin-bottom: 8px;
+  color: var(--accent2); letter-spacing: .5px;
+}
+.section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.tips { line-height: 1.6; font-size: 12px; }
+.tips b { color: var(--accent2); }
+/* ── Responsive ───────────────────────────── */
+@media (max-width: 920px) {
+  .layout { grid-template-columns: 1fr; }
+  .wrap { padding: 6px; }
+  .panel { padding: 8px; }
+  .board { min-height: 440px; }
+  .mobile-bar { display: flex; gap: 6px; overflow: auto; padding-bottom: 4px; margin-bottom: 8px; }
+  .shop { display: none; }
+  .card { min-width: 155px; }
+  button, select, .pill { padding: 8px; }
+  #pauseBtn { min-width: 64px; }
+  .draft-cards, .relic-cards { grid-template-columns: 1fr; }
+  .draft-card, .relic-card { padding: 14px; }
+}
