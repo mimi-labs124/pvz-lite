@@ -447,14 +447,14 @@ function handleCellClick(r, c) {
 		return;
 	}
 
-	// 如果該格已有植物 → 升級
- const key = cellKey(r, c);
- if (state.plants.has(key)) {
- handleUpgrade(r, c);
- return;
- }
+	// 如果該格已有植物 → 不做事（hover tooltip 已顯示資訊）
+	// 右鍵可強制升級
+	const key = cellKey(r, c);
+	if (state.plants.has(key)) {
+		return;
+	}
 
- placePlant(r, c);
+	placePlant(r, c);
 }
 
 function placePlant(r, c) {
@@ -479,12 +479,12 @@ function placePlant(r, c) {
  const cd = Math.max(1, def.cooldown - cdReduction);
  state.cooldowns[type] = cd;
 
- const plant = {
- type, row: r, col: c,
- hp: def.hp, maxHp: def.hp,
- xp: 0, level: 1,
- attackTimer: 0, produceTimer: 0, healTimer: 0,
- };
+const plant = {
+    type, row: r, col: c,
+    hp: def.hp, maxHp: def.hp,
+    xp: 0, level: 1,
+    sunTimer: 0, attackTimer: 0, produceTimer: 0, healTimer: 0,
+  };
  // 地形加成
  const terrain = getCellTerrain(state, r, c);
  if (terrain?.defenseBonus) {
@@ -1203,18 +1203,24 @@ function recordRun(state) {
 export function bindGameEvents() {
  bindPauseControl(pauseBtn, statusTitleEl, statusTextEl, () => isPaused, v => { isPaused = v; });
 
- boardEl.addEventListener('pointerdown', e => {
- // Sun hover is handled by mouseover, not pointerdown
- const cell = e.target.closest('.cell');
- if (!cell) return;
- const r = parseInt(cell.dataset.row);
- const c = parseInt(cell.dataset.col);
- if (state.swapMode) {
- handleSwapMode(r, c);
- return;
- }
- // Handle shovel/plant/upgrade clicks here (unified with makeBoard click)
- handleCellClick(r, c);
+boardEl.addEventListener('pointerdown', e => {
+   // Sun hover is handled by mouseover, not pointerdown
+   const cell = e.target.closest('.cell');
+   if (!cell) return;
+   const r = parseInt(cell.dataset.row);
+   const c = parseInt(cell.dataset.col);
+   if (state.swapMode) {
+     handleSwapMode(r, c);
+     return;
+   }
+   // 右鍵升級植物
+   if (e.button === 2) {
+     e.preventDefault();
+     handleUpgrade(r, c);
+     return;
+   }
+   // Handle shovel/plant/upgrade clicks here (unified with makeBoard click)
+   handleCellClick(r, c);
  });
 
 // ── Sun hover collection + Plant Tooltip ──
