@@ -18,14 +18,16 @@ export function bindPauseControl(pauseBtn, _statusTitleEl, _statusTextEl, isPaus
  */
 export function bindKeyboardShortcuts(handlers) {
   document.addEventListener('keydown', (e) => {
-    // 不要在 overlay 顯示時或輸入框中觸發
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-    if (document.querySelector('.overlay:not([style*="display: none"])') &&
-        !document.querySelector('.overlay:not([style*="display: none"])').classList.contains('hidden')) {
-      return;
-    }
+ const key = e.key.toLowerCase();
 
-    const key = e.key.toLowerCase();
+ // 不要在 overlay 顯示時或輸入框中觸發
+ if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+ const shownOverlay = document.querySelector('.overlay.show');
+ if (shownOverlay) {
+ // 遊戲結束 overlay 完全擋住；draft/relic overlay 只保留暫停鍵
+ if (!shownOverlay.classList.contains('draft-overlay') && !shownOverlay.classList.contains('relic-overlay')) return;
+ if (key !== ' ') return; // 在 draft/relic overlay 只允許空白鍵暫停
+ }
 
     // 數字鍵 1-9：選擇牌組中的植物
     if (key >= '1' && key <= '9') {

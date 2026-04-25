@@ -97,7 +97,7 @@ export function createRunState() {
  maxCol: 8,
  conquering: null, // 當前佔領進度 { key, row, col, progress, total }
  },
-    conquestMode: false, // 是否正在佔領模式
+    // 佔領模式已移除（改為自動佔領）
  shovelMode: false, // 是否正在鏟子模式
  upgradeCount: 0, // 陽光升級次數
  gameSpeed: 1, // 遊戲速度 1x/1.5x/2x

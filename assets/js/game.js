@@ -8,7 +8,7 @@ import {
  pauseBtn, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
  draftOverlayEl, draftCardsEl, draftWaveEl, spellBarEl, chaosAlertEl,
  deckCountEl, bossHpBarEl, bossHpTextEl, runInfoEl,
- relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl, conquestBtnEl,
+ relicOverlayEl, relicCardsEl, relicTitleEl, frontlineInfoEl,
 } from './dom.js';
 const battleLogEl = document.getElementById('battleLog');
 import { cellKey, flash } from './core/helpers.js';
@@ -23,9 +23,9 @@ import { checkChaosTrigger, isChaosActive } from './systems/chaos.js';
 import { generateDraftCards, applyDraftCard } from './systems/draft.js';
 import { renderEntities } from './render/entities.js';
 import {
- initTerritory, tryConquest, territoryWaveReward, autoConquestCheck,
+ initTerritory, territoryWaveReward,
  getPlayableCols, isCellPlayable, getCellTerrain, TERRAIN_TYPES,
- conquestCost, TERRITORY, updateConquestProgress,
+ TERRITORY, updateAutoConquest,
 } from './systems/territory.js';
 import { actualPlantCost } from './systems/shop.js';
 import { sfx, audioState } from './audio.js';
@@ -118,23 +118,13 @@ function checkWaveComplete() {
 
  battleLog(`✅ 第 ${state.wave} 波完成！`, 'success');
 
- const terrReward = territoryWaveReward(state);
- if (terrReward > 0) {
- showChaosAlert(`🗡️ 領土收益 +${terrReward} ☀️`);
- battleLog(`☀️ 領土收益 +${terrReward}`);
- }
+		const terrReward = territoryWaveReward(state);
+		if (terrReward > 0) {
+			showChaosAlert(`🗡️ 領土收益 +${terrReward} ☀️`);
+			battleLog(`☀️ 領土收益 +${terrReward}`);
+		}
 
- const autoResult = autoConquestCheck(state);
- if (autoResult) {
- const msg = autoResult.advanced
- ? `🏰 自動佔領，前線推進！`
- : `🏰 自動佔領一格`;
- showChaosAlert(msg);
- battleLog(msg, 'success');
- territoryDirty = true;
- }
-
- // Boss 狂暴日誌
+		// Boss 狂暴日誌
  if (state.bossRageTriggered) {
  battleLog(`🤬 Boss 狂暴化！速度+30%、攻擊+50%`, 'danger');
  state.bossRageTriggered = false;
@@ -183,7 +173,7 @@ function renderDraftOverlay() {
 
  draftCardsEl.querySelectorAll('.draft-card').forEach(el => {
  el.addEventListener('click', () => {
- applyDraftCard(state, Number(el.dataset.index));
+applyDraftCard(state, state.draftCards[Number(el.dataset.index)]);
  draftOverlayEl.classList.remove('show');
  state.draftPhase = false;
  state.wave++;
@@ -246,8 +236,13 @@ function showRelicSelection() {
  el.addEventListener('click', () => {
  const id = el.dataset.id;
  owned.push(id);
- localStorage.setItem('pvz_relics', JSON.stringify(owned));
+ saveRelics(owned);
+ // Apply buff immediately for next game
+ const relic = RELICS[id];
+ if (relic?.effect) relic.effect(state);
  relicOverlayEl.classList.remove('show');
+ showChaosAlert(`🏆 獲得遺物：${relic?.emoji || ''} ${relic?.name || id}`);
+ battleLog(`🏆 遺物獲得：${relic?.emoji || ''} ${relic?.name || id}`, 'success');
  });
  });
 }
@@ -264,7 +259,7 @@ function frame(now) {
 	const dt = Math.min(raw, 0.1);
 
 	try {
-		if (!isPaused && !state.draftPhase && !state.relicPhase) {
+		if (!isPaused && !state.draftPhase && !state.relicPhase && !state.gameOver) {
 			const gameDt = dt * (state.gameSpeed || 1);
 			update(gameDt);
 		}
@@ -299,36 +294,31 @@ function update(dt) {
 		}
 	}
 
-	// ── 天空陽光 + 自動收集 ──
- updateSkyDrops(state, dt, cols);
- updateSunDrops(state, dt);
+	// ── 天空陽光 ──
+	updateSkyDrops(state, dt, cols);
+	updateSunDrops(state, dt);
 
- // 自動收集過期陽光（後期 QoL）
- autoCollectOldSuns(state, dt);
-
- updateSpawning(state, dt);
+	updateSpawning(state, dt);
  updatePlantsCombat(state, dt, sfx, addSun, (key) => state.plants.delete(key));
  updatePeasCombat(state, dt, sfx);
  updateZombieCombat(state, dt, sfx, cellKey);
  cleanupState(state, dt);
  checkChaosTrigger(state, dt);
 
- // ── 殭屍佔領地盤 ──
- zombieTerritoryPush(state, dt);
-
- // ── 佔領進度更新 ──
- const conquestResult = updateConquestProgress(state, dt);
- if (conquestResult?.completed) {
- sfx('plant');
- showChaosAlert(conquestResult.msg);
- territoryDirty = true;
- if (conquestResult.advanced) {
- battleLog(`🗡️ 前線推進！${conquestResult.msg}`, 'success');
- createBoard();
- } else {
- battleLog(conquestResult.msg, 'success');
- }
- }
+	// ── 自動佔領進度更新 ──
+	const conquestMessages = updateAutoConquest(state, dt);
+	for (const msg of conquestMessages) {
+		if (msg.type === 'conquered') {
+			sfx('plant');
+			showChaosAlert(msg.msg);
+			battleLog(msg.msg, 'success');
+			territoryDirty = true;
+		} else if (msg.type === 'lost') {
+			showChaosAlert(msg.msg);
+			battleLog(msg.msg, 'danger');
+			territoryDirty = true;
+		}
+	}
 
  checkWaveComplete();
  syncStats();
@@ -360,42 +350,7 @@ function updateSunDrops(state, dt) {
  }
 }
 
-// ── 自動收集：生命 < 3 秒的陽光自動飛向陽光計 ──
-function autoCollectOldSuns(state, dt) {
- const autoTimer = state.autoSunTimer || 0;
- state.autoSunTimer = autoTimer + dt;
- // 每 0.5 秒檢查一次
- if (state.autoSunTimer < 0.5) return;
- state.autoSunTimer = 0;
-
- for (let i = state.suns.length - 1; i >= 0; i--) {
- if (state.suns[i].life < 3) {
- state.sun += state.suns[i].value;
- state.suns.splice(i, 1);
- }
- }
-}
-
-// ── 殭屍推進佔領地盤 ──
-function zombieTerritoryPush(state, dt) {
- if (!state.territory) return;
- for (const z of state.zombies) {
- const col = Math.floor(z.x);
- if (col >= 0 && col < cols) {
- const key = cellKey(z.row, col);
- if (state.territory.conquered.has(key)) {
- // 殭屍在已佔領格上，逐漸奪回
- if (!z.uncaptureTimer) z.uncaptureTimer = 0;
- z.uncaptureTimer += dt;
- if (z.uncaptureTimer >= 4) {
- z.uncaptureTimer = 0;
- state.territory.conquered.delete(key);
- territoryDirty = true;
- }
- }
- }
- }
-}
+// ── 陽光掉落物理（在 cleanup 中處理收集動畫）──
 
 function checkGameEnd() {
 	for (const z of state.zombies) {
@@ -427,27 +382,12 @@ function createBoard() {
 function handleCellClick(r, c) {
  if (state.gameOver || state.draftPhase) return;
 
- if (state.shovelMode) {
- handleShovel(r, c);
- return;
- }
+	if (state.shovelMode) {
+		handleShovel(r, c);
+		return;
+	}
 
- if (state.conquestMode) {
- const result = tryConquest(state, r, c);
- if (result.ok) {
- sfx('plant');
- showChaosAlert(result.msg);
- territoryDirty = true;
- syncStats();
- render();
- } else {
- flash(sunEl);
- showChaosAlert(`❌ ${result.msg}`);
- }
- return;
- }
-
- // 如果該格已有植物 → 升級
+	// 如果該格已有植物 → 升級
  const key = cellKey(r, c);
  if (state.plants.has(key)) {
  handleUpgrade(r, c);
@@ -532,10 +472,9 @@ function handleShovel(r, c) {
 }
 
 function toggleShovel() {
- state.shovelMode = !state.shovelMode;
- if (state.shovelMode) {
- state.selectedPlant = null;
- state.conquestMode = false;
+	state.shovelMode = !state.shovelMode;
+	if (state.shovelMode) {
+		state.selectedPlant = null;
  [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
  boardEl.classList.add('shovel-cursor');
  } else {
@@ -554,23 +493,30 @@ function updateShovelBtn() {
 // ═══════════════════════════════════════════════
 
 function handleUpgrade(r, c) {
- if (state.gameOver) return;
- const key = cellKey(r, c);
- const plant = state.plants.get(key);
- if (!plant) return;
+	if (state.gameOver) return;
+	const key = cellKey(r, c);
+	const plant = state.plants.get(key);
+	if (!plant) return;
 
- const currentLevel = plant.level || 1;
- if (currentLevel >= 3) {
- showChaosAlert('⭐ 已達最高等級！');
- return;
- }
+	const currentLevel = plant.level || 1;
+	if (currentLevel >= 3) {
+		showChaosAlert('⭐ 已達最高等級！');
+		return;
+	}
+
+	// ── XP 門檻：經驗必須達標才能升級 ──
+	const nextLevelXP = XP_LEVELS[currentLevel];
+	if (nextLevelXP !== undefined && (plant.xp || 0) < nextLevelXP) {
+		showChaosAlert(`❌ 經驗不足！需要 ${nextLevelXP} XP（目前 ${plant.xp || 0}）`);
+		return;
+	}
 
 	const upgradeCost = Math.floor((PLANTS[plant.type]?.cost || 50) * (currentLevel === 1 ? 0.6 : 1.0) * currentLevel);
- if (state.sun < upgradeCost) {
- flash(sunEl);
- showChaosAlert(`❌ 升級需要 ${upgradeCost} ☀️`);
- return;
- }
+	if (state.sun < upgradeCost) {
+		flash(sunEl);
+		showChaosAlert(`❌ 升級需要 ${upgradeCost} ☀️`);
+		return;
+	}
 
 	state.sun -= upgradeCost;
 	plant.level = currentLevel + 1;
@@ -580,14 +526,14 @@ function handleUpgrade(r, c) {
 	applyEvolutionToPlant(plant);
  state.upgradeCount = (state.upgradeCount || 0) + 1;
 
- sfx('evolve');
- const evo = getEvolutionBonus(plant.type, plant.level);
- const evoDesc = evo?.desc ? ` — ${evo.desc}` : '';
- showChaosAlert(`⭐ ${PLANTS[plant.type]?.name} → Lv.${plant.level}${evoDesc} (-${upgradeCost} ☀️)`);
- battleLog(`⭐ ${PLANTS[plant.type]?.emoji} ${PLANTS[plant.type]?.name} 升級到 Lv.${plant.level}`, 'success');
- syncStats();
- updateShop(state);
- render();
+	sfx('evolve');
+	const evo = getEvolutionBonus(plant.type, plant.level);
+	const evoDesc = evo?.desc ? ` — ${evo.desc}` : '';
+	showChaosAlert(`⭐ ${PLANTS[plant.type]?.name} → Lv.${plant.level}${evoDesc} (-${upgradeCost} ☀️)`);
+	battleLog(`⭐ ${PLANTS[plant.type]?.emoji} ${PLANTS[plant.type]?.name} 升級到 Lv.${plant.level}`, 'success');
+	syncStats();
+	updateShop(state);
+	render();
 }
 
 // ═══════════════════════════════════════════════
@@ -616,9 +562,8 @@ function buildShop() {
 
 function selectPlant(name) {
  if (!state.deck.includes(name)) return;
- state.selectedPlant = name;
- state.conquestMode = false;
- state.shovelMode = false;
+	state.selectedPlant = name;
+	state.shovelMode = false;
  boardEl.classList.remove('shovel-cursor');
  updateShovelBtn();
  [...document.querySelectorAll('.card')].forEach(c => c.classList.toggle('selected', c.dataset.plant === name));
@@ -694,7 +639,7 @@ function castSpell(name) {
 // ═══════════════════════════════════════════════
 
 function updateCellHighlights() {
- if (!state.selectedPlant || state.shovelMode || state.conquestMode || state.gameOver) {
+	if (!state.selectedPlant || state.shovelMode || state.gameOver) {
  boardEl.querySelectorAll('.cell').forEach(c => c.classList.remove('valid', 'invalid'));
  return;
  }
@@ -853,13 +798,9 @@ function renderBattleLog() {
 function updateTerritoryUI() {
  const playableCols = getPlayableCols(state);
  const conqueredCount = state.territory?.conquered?.size || 0;
- if (frontlineInfoEl) {
- frontlineInfoEl.textContent = `前線：第 ${playableCols} 列 | 佔領：${conqueredCount} 格`;
- }
-
- if (conquestBtnEl) {
- conquestBtnEl.classList.toggle('active', state.conquestMode);
- }
+	if (frontlineInfoEl) {
+		frontlineInfoEl.textContent = `前線：第 ${playableCols} 列 | 佔領：${conqueredCount} 格`;
+	}
 
  // 更新格子視覺
  const cells = boardEl.querySelectorAll('.cell');
@@ -881,22 +822,31 @@ function updateTerritoryUI() {
  cell.classList.add('conquered');
  }
 
- // 佔領進度中的格子
- const conquering = state.territory?.conquering;
- if (conquering && conquering.key === cellKey(r, c)) {
- cell.classList.add('conquering');
- // 更新佔領進度條
- let progBar = cell.querySelector('.conquest-progress-bar');
- if (!progBar) {
- progBar = document.createElement('div');
- progBar.className = 'conquest-progress-bar';
- cell.appendChild(progBar);
- }
- progBar.style.width = `${(conquering.progress / conquering.total) * 100}%`;
- } else {
- const progBar = cell.querySelector('.conquest-progress-bar');
- if (progBar) progBar.remove();
- }
+	// 自動佔領進度條
+	const progressKey = cellKey(r, c);
+	const progress = state.territory?.columnProgress?.[progressKey];
+	if (progress && progress > 0 && !conquered) {
+	 let progBar = cell.querySelector('.auto-conquest-bar');
+	 if (!progBar) {
+	 progBar = document.createElement('div');
+	 progBar.className = 'auto-conquest-bar';
+	 cell.appendChild(progBar);
+	 }
+	 progBar.style.width = `${progress}%`;
+	 } else if (progress && progress < 0 && conquered) {
+	 // 殭屍正在奪回
+	 let progBar = cell.querySelector('.auto-conquest-bar');
+	 if (!progBar) {
+	 progBar = document.createElement('div');
+	 progBar.className = 'auto-conquest-bar';
+	 progBar.style.background = 'linear-gradient(90deg, #ef4444, #f97316)';
+	 cell.appendChild(progBar);
+	 }
+	 progBar.style.width = `${Math.abs(progress)}%`;
+	 } else {
+	 const progBar = cell.querySelector('.auto-conquest-bar');
+	 if (progBar) progBar.remove();
+	 }
 
  // 地形標記
  let terrainMarker = cell.querySelector('.terrain-marker');
@@ -1048,9 +998,8 @@ function syncStats() {
  waveEl.textContent = state.wave;
  mowerEl.textContent = state.lawnmowers.filter(m => !m.used).length;
  if (deckCountEl) deckCountEl.textContent = state.deck.length;
- if (runInfoEl) runInfoEl.textContent = `第 ${state.wave} 波 | 🏛️ ${loadRelics().length} 遺物`;
- updatePlantInfoPanel();
- updateComboDisplay();
+	if (runInfoEl) runInfoEl.textContent = `第 ${state.wave} 波 | 🏛️ ${loadRelics().length} 遺物`;
+	updateComboDisplay();
  // Speed display — update button text directly instead of creating new pill
  const speedBtn = document.getElementById('speedBtn');
  if (speedBtn) {
@@ -1096,35 +1045,6 @@ function syncStats() {
 
 function updateComboDisplay() {
  // Combo counter
-}
-
-// ── 植物資訊面板（取代 XP 進度） ──
-function updatePlantInfoPanel() {
- const panel = document.getElementById('plantInfoPanel');
- if (!panel) return;
- const plants = [...state.plants.values()];
- if (plants.length === 0) {
- panel.innerHTML = '<span class="muted" style="font-size:11px;">尚無植物</span>';
- return;
- }
- panel.innerHTML = plants.map(p => {
- const def = PLANTS[p.type];
- const level = p.level || 1;
- const evo = getEvolutionBonus(p.type, level);
- const evoName = evo?.name || def?.name || '';
- const upgradeCost = level < 3 ? Math.floor((def?.cost || 50) * level * 0.6) : null;
- const terrain = getCellTerrain(state, p.row, p.col);
- const terrainTag = terrain && state.territory?.conquered?.has(cellKey(p.row, p.col))
- ? `<span class="terrain-tag">${terrain.emoji}</span>` : '';
- return `<div class="plant-info-item" data-key="${cellKey(p.row, p.col)}">
- <span class="pi-emoji">${def?.emoji || '?'}</span>
- <span class="pi-detail">
- <span class="pi-name">${evoName} <small class="pi-lv">Lv.${level}</small>${terrainTag}</span>
- <span class="pi-hp-bar"><i style="width:${Math.max(0, p.hp / p.maxHp * 100)}%"></i></span>
- <span class="pi-upgrade">${upgradeCost !== null ? `↑ 升級 ${upgradeCost} ☀️` : 'MAX'}</span>
- </span>
- </div>`;
- }).join('');
 }
 
 // ═══════════════════════════════════════════════
@@ -1191,24 +1111,35 @@ export function bindGameEvents() {
  bindPauseControl(pauseBtn, statusTitleEl, statusTextEl, () => isPaused, v => { isPaused = v; });
 
  boardEl.addEventListener('pointerdown', e => {
+ // Sun hover is handled by mouseover, not pointerdown
+ const cell = e.target.closest('.cell');
+ if (!cell) return;
+ const r = parseInt(cell.dataset.row);
+ const c = parseInt(cell.dataset.col);
+ if (state.swapMode) {
+ handleSwapMode(r, c);
+ return;
+ }
+ // Handle shovel/plant/upgrade clicks here (unified with makeBoard click)
+ handleCellClick(r, c);
+ });
+
+ // ── Sun hover collection ──
+ boardEl.addEventListener('mouseover', e => {
  const sunTarget = e.target.closest('.sun');
- if (sunTarget) {
- e.preventDefault();
- e.stopPropagation();
+ if (!sunTarget) return;
+ if (state.gameOver || state.draftPhase) return;
  ensureAudio();
- if (collectSun(state, Number(sunTarget.dataset.sunId))) {
+ const sunId = Number(sunTarget.dataset.sunId);
+ const sunObj = state.suns.find(s => s.id === sunId);
+ if (!sunObj || sunObj.collected) return;
+ // Mark as collected (animation will play, then removed)
+ sunObj.collected = true;
+ sunObj.collectTime = 0.4;
+ state.sun += sunObj.value;
  syncStats();
  updateShop(state);
  sfx('sun');
- render();
- }
- return;
- }
-
- const cell = e.target.closest('.cell');
- if (cell && state.swapMode) {
- handleSwapMode(parseInt(cell.dataset.row), parseInt(cell.dataset.col));
- }
  });
 
  // Shovel button
@@ -1239,21 +1170,7 @@ export function bindGameEvents() {
  handleUpgrade(r, c);
  });
 
- if (conquestBtnEl) {
- conquestBtnEl.addEventListener('click', () => {
- state.conquestMode = !state.conquestMode;
- if (state.conquestMode) {
- state.selectedPlant = null;
- state.shovelMode = false;
- boardEl.classList.remove('shovel-cursor');
- updateShovelBtn();
- [...document.querySelectorAll('.card')].forEach(c => c.classList.remove('selected'));
- }
- updateTerritoryUI();
- });
- }
-
- // Difficulty selector
+	// Difficulty selector
  const diffSel = document.getElementById('difficultySelect');
  if (diffSel) {
  diffSel.addEventListener('change', () => {
@@ -1280,14 +1197,10 @@ export function bindGameEvents() {
  tip += ` | HP: ${Math.round(plant.hp)}/${plant.maxHp}`;
  const upgCost = plant.level < 3 ? Math.floor((def?.cost || 50) * plant.level * 0.6) : null;
  if (upgCost !== null) tip += ` | 升級: ${upgCost} ☀️`;
- } else if (terrain) {
- const conquered = state.territory?.conquered?.has(cellKey(r, c));
- tip = `${terrain.emoji} ${terrain.name}${conquered ? ' (已佔領)' : ''}: ${terrain.desc}`;
- if (!conquered) {
- const cost = conquestCost(state, c);
- tip += ` | 佔領: ${cost} ☀️`;
- }
- }
+	} else if (terrain) {
+			const conquered = state.territory?.conquered?.has(cellKey(r, c));
+			tip = `${terrain.emoji} ${terrain.name}${conquered ? ' (已佔領)' : ''}: ${terrain.desc}`;
+		}
  if (tip) cell.title = tip;
  });
 

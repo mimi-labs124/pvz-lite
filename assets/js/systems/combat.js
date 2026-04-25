@@ -4,7 +4,7 @@
 import { rows, cols, ZOMBIES, BOSS_WAVES, DIFFICULTY } from '../config.js';
 import { getEvolutionBonus } from './evolution.js';
 import { isChaosActive } from './chaos.js';
-import { TERRAIN_TYPES } from './territory.js';
+import { TERRAIN_TYPES, ZOMBIE_UNCONQUERED_BUFFS, isConqueredCell } from './territory.js';
 
 // ── Combo helper — called when a pea hits ──
 function registerComboHit(state) {
@@ -390,8 +390,12 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
     const bloodBoost = state.modifier === 'bloodmoon' ? 1.18 : 1;
     const frozenMult = z.frozen ? 0.05 : z.slowTimer > 0 ? 0.5 : 1;
     const warpMult = z.warpSlow ? 0.5 : 1;
-    const relicSpeedBoost = 1 + (state.relicBuffs?.zombieSpeedBoost || 0);
-    const eff = z.speed * bloodBoost * frozenMult * warpMult * relicSpeedBoost;
+	const relicSpeedBoost = 1 + (state.relicBuffs?.zombieSpeedBoost || 0);
+	// ── 殭屍在未佔領地的巨額強化 ──
+	const zCol = Math.round(z.x);
+	const unconquered = state.territory && zCol >= 3 && !isConqueredCell(state, z.row, zCol);
+	const unconqueredSpeed = unconquered ? ZOMBIE_UNCONQUERED_BUFFS.speedMult : 1;
+	const eff = z.speed * bloodBoost * frozenMult * warpMult * relicSpeedBoost * unconqueredSpeed;
 
     // 找殭屍前方最近的植物（掃描同行所有植物）
     let plant = null;
@@ -456,9 +460,10 @@ export function updateZombieCombat(state, dt, sfx, cellKey) {
  z.biteTimer += dt;
  if (z.biteTimer >= 0.7) {
  z.biteTimer = 0;
- const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
- const biteScale = diff.biteScale || 1;
- const biteDmg = Math.round((z.biteDmg || ZOMBIES[z.kind]?.bite || 18) * biteScale);
+			const diff = DIFFICULTY[state.difficulty] || DIFFICULTY.normal;
+				const biteScale = diff.biteScale || 1;
+				const unconqueredBiteMult = unconquered ? ZOMBIE_UNCONQUERED_BUFFS.biteMult : 1;
+				const biteDmg = Math.round((z.biteDmg || ZOMBIES[z.kind]?.bite || 18) * biteScale * unconqueredBiteMult);
  if (state.shieldTimer <= 0) {
  plant.hp -= biteDmg;
  if (plant.hp <= 0) state.plants.delete(plantKey);

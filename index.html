@@ -1,24 +1,24 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>🌪️ 植物大戰殭屍 Lite：Chaos Awakening</title>
-  <link rel="stylesheet" href="assets/css/styles.css" />
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+ <title>🌪️ 植物大戰殭屍 Lite：Chaos Awakening</title>
+ <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
 <div class="wrap">
-  <!-- 頂部欄 -->
-  <div class="topbar">
-    <div>
-      <div class="title">🌪️ Chaos Awakening</div>
-      <div class="muted">遺物 × 馴服 × 領土 — 每局更強</div>
-    </div>
-    <div class="stats">
-      <div class="pill sun-pill">☀️ <span id="sunCount">150</span></div>
-      <div class="pill kill-pill">💀 <span id="kills">0</span></div>
-      <div class="pill wave-pill">🌊 <span id="wave">1</span></div>
-      <div class="pill deck-pill">🃏 <span id="deckCount">3</span></div>
+ <!-- 頂部欄 -->
+ <div class="topbar">
+ <div>
+ <div class="title">🌪️ Chaos Awakening</div>
+ <div class="muted">遺物 × 馴服 × 領土 — 每局更強</div>
+ </div>
+ <div class="stats">
+ <div class="pill sun-pill">☀️ <span id="sunCount">150</span></div>
+ <div class="pill kill-pill">💀 <span id="kills">0</span></div>
+ <div class="pill wave-pill">🌊 <span id="wave">1</span></div>
+ <div class="pill deck-pill">🃏 <span id="deckCount">3</span></div>
  <div class="pill mower-pill">🚜 <span id="mowerCount">5</span></div>
  <div id="runInfo" class="pill run-pill">第 1 波 | 🏛️ 0 遺物</div>
  <button id="shovelBtn" class="shovel-btn" title="鏟子：移除植物退回50%陽光">🪏 鏟子</button>
@@ -30,83 +30,78 @@
  <option value="normal" selected>普通</option>
  <option value="hard">困難</option>
  </select>
-    </div>
-  </div>
-
-  <!-- 主佈局 -->
-  <div class="layout">
-    <!-- 左側面板 -->
-    <aside class="panel sidebar">
-      <div class="section-title">🃏 牌組</div>
-      <div id="mobileShop" class="mobile-bar"></div>
-      <div id="shop" class="shop"></div>
-
-      <div class="section">
-        <div class="section-title">✨ 法術</div>
-        <div id="spellBar" class="spell-bar"></div>
-      </div>
-
- <div class="section">
- <div class="section-title">🌱 場上植物</div>
- <div id="plantInfoPanel" class="plant-info-panel"></div>
+ </div>
  </div>
 
- <!-- ── Chaos Awakening: 領土控制 ── -->
+ <!-- 主佈局 -->
+ <div class="layout">
+ <!-- 左側面板 -->
+ <aside class="panel sidebar">
+ <div class="section-title">🃏 牌組</div>
+ <div id="mobileShop" class="mobile-bar"></div>
+ <div id="shop" class="shop"></div>
+
+ <div class="section">
+ <div class="section-title">✨ 法術</div>
+ <div id="spellBar" class="spell-bar"></div>
+ </div>
+
+ <!-- ── Chaos Awakening: 領土資訊（自動佔領） ── -->
  <div class="section">
  <div class="section-title">🗡️ 領土</div>
  <div id="frontlineInfo" class="muted" style="margin-bottom:6px;">前線：第 5 列 | 佔領：0 格</div>
- <button id="conquestBtn" class="conquest-btn">🗡️ 佔領</button>
- <div class="muted" style="margin-top:4px; font-size:11px;">點特殊地形格佔領 • 殭屍會奪回！</div>
+ <div class="muted" style="font-size:11px;">殭屍在未佔領地大幅強化！清空交界殭屍即可自動佔領</div>
  </div>
 
-      <!-- ── Chaos Awakening: 遺物顯示 ── -->
-      <div class="section">
-        <div class="section-title">🏛️ 遺物</div>
-        <div id="relicList" class="relic-list">
-          <div class="muted">尚無遺物 — 陣亡後可獲得</div>
-        </div>
-      </div>
+ <!-- ── Chaos Awakening: 遺物顯示 ── -->
+ <div class="section">
+ <div class="section-title">🏛️ 遺物</div>
+ <div id="relicList" class="relic-list">
+ <div class="muted">尚無遺物 — 陣亡後可獲得</div>
+ </div>
+ </div>
 
-      <div class="section">
-        <div class="section-title">🔊 音效</div>
-        <div class="muted">音量：<span id="sfxValue">70%</span></div>
-        <input id="sfxVolume" type="range" min="0" max="100" value="70" />
-      </div>
+ <div class="section">
+ <div class="section-title">🔊 音效</div>
+ <div class="muted">音量：<span id="sfxValue">70%</span></div>
+ <input id="sfxVolume" type="range" min="0" max="100" value="70" />
+ </div>
 
-      <div class="section muted tips">
-        🌪️ <b>Chaos Awakening</b> — 遺物 × 馴服 × 領土<br>
-        ─ 每波結束<b>抽牌</b>：選一張強化牌組<br>
-        ─ 植物殺敵獲得 <b>XP</b>，升級後<b>進化</b><br>
-        ─ 解鎖<b>法術</b>，即時施放扭轉戰局<br>
-        ─ <b>混亂事件</b>隨機觸發，進化植物可<b>馴服</b><br>
-        ─ 花<b>陽光佔領</b>前線，擴展領土<br>
+ <div class="section muted tips">
+ 🌪️ <b>Chaos Awakening</b> — 遺物 × 馴服 × 領土<br>
+ ─ 每波結束<b>抽牌</b>：選一張強化牌組<br>
+ ─ 植物殺敵獲得 <b>XP</b>，XP 滿了花陽光<b>升級</b><br>
+ ─ 解鎖<b>法術</b>，即時施放扭轉戰局<br>
+ ─ <b>混亂事件</b>隨機觸發，進化植物可<b>馴服</b><br>
+ ─ 清空前線殭屍自動<b>佔領</b>，殭屍在未佔領地<b>巨幅強化</b><br>
  ─ 死亡後獲得<b>遺物</b>，下一局更強<br>
  ─ 每 5 波出現 <b>Boss</b>！<br>
  ─ 🍉 <b>西瓜投手</b>：3×3 濺射 | 🌿 <b>地刺</b>：地面持續傷害<br>
  ─ 💃 <b>舞王殭屍</b>：死亡召喚伴舞！<br>
- ─ 點已種植物<b>花陽光升級</b>（最高 Lv3），右鍵也可以<br>
- — 🪏 <b>鏟子</b>移除植物退回 50% 陽光<br>
- — ⏩ <b>加速</b>按鈕切換 1x / 1.5x / 2x<br>
- — <b>快捷鍵</b>：1-9 選植物 | S 鏟子 | F 加速 | 空白暫停 | Q/W/E/R/T 法術
-      </div>
-    </aside>
+ ─ 點已種植物 XP 滿了可花陽光<b>升級</b>（最高 Lv3），右鍵也可以<br>
+ ─ 🪏 <b>鏟子</b>移除植物退回 50% 陽光<br>
+ ─ ⏩ <b>加速</b>按鈕切換 1x / 1.5x / 2x<br>
+ ─ <b>快捷鍵</b>：1-9 選植物 | S 鏟子 | F 加速 | 空白暫停 | Q/W/E/R/T 法術<br>
+ ─ 🖱️ <b>陽光</b>滑過即撿，不撿就消失了！
+ </div>
+ </aside>
 
-    <!-- 遊戲區 -->
-    <section class="panel board-wrap">
-      <!-- Boss 血條 -->
-      <div id="bossHpBar" class="boss-hp-bar">
-        <div class="boss-hp-fill"></div>
-        <div id="bossHpText" class="boss-hp-text"></div>
-      </div>
+ <!-- 遊戲區 -->
+ <section class="panel board-wrap">
+ <!-- Boss 血條 -->
+ <div id="bossHpBar" class="boss-hp-bar">
+ <div class="boss-hp-fill"></div>
+ <div id="bossHpText" class="boss-hp-text"></div>
+ </div>
 
-      <!-- 戰鬥狀態 -->
-      <div id="battleStatus" class="battle-status">
-        <div>
-          <strong id="statusTitle">準備中</strong>
-          <div id="statusText" class="muted">種好第一排，別讓殭屍衝進來。</div>
-        </div>
-        <div id="modifierTag" class="modifier-tag">普通日</div>
-      </div>
+ <!-- 戰鬥狀態 -->
+ <div id="battleStatus" class="battle-status">
+ <div>
+ <strong id="statusTitle">準備中</strong>
+ <div id="statusText" class="muted">種好第一排，別讓殭屍衝進來。</div>
+ </div>
+ <div id="modifierTag" class="modifier-tag">普通日</div>
+ </div>
 
  <!-- 混亂警報 -->
  <div id="chaosAlert" class="chaos-alert"></div>
@@ -127,35 +122,35 @@
  <!-- 遊戲棋盤 -->
  <div id="board" class="board"></div>
 
-      <!-- 遊戲結束覆蓋 -->
-      <div id="overlay" class="overlay">
-        <div class="dialog">
+ <!-- 遊戲結束覆蓋 -->
+ <div id="overlay" class="overlay">
+ <div class="dialog">
  <h2 id="endTitle">遊戲結束</h2>
  <p id="endText" class="muted"></p>
  <div id="endStats" class="end-stats"></div>
  <button id="playAgainBtn">🔄 重新開始</button>
-        </div>
-      </div>
+ </div>
+ </div>
 
-      <!-- Draft 覆蓋 -->
-      <div id="draftOverlay" class="overlay draft-overlay">
-        <div class="draft-dialog">
-          <h2 id="draftWave" class="draft-title">第 1 波完成！選擇一張牌：</h2>
-          <div id="draftCards" class="draft-cards"></div>
-        </div>
-      </div>
+ <!-- Draft 覆蓋 -->
+ <div id="draftOverlay" class="overlay draft-overlay">
+ <div class="draft-dialog">
+ <h2 id="draftWave" class="draft-title">第 1 波完成！選擇一張牌：</h2>
+ <div id="draftCards" class="draft-cards"></div>
+ </div>
+ </div>
 
-      <!-- ── Chaos Awakening: 遺物選擇覆蓋 ── -->
-      <div id="relicOverlay" class="overlay relic-overlay">
-        <div class="relic-dialog">
-          <h2 id="relicTitle" class="relic-title">🏆 選擇遺物</h2>
-          <div id="relicCards" class="relic-cards"></div>
-        </div>
-      </div>
-    </section>
-  </div>
+ <!-- ── Chaos Awakening: 遺物選擇覆蓋 ── -->
+ <div id="relicOverlay" class="overlay relic-overlay">
+ <div class="relic-dialog">
+ <h2 id="relicTitle" class="relic-title">🏆 選擇遺物</h2>
+ <div id="relicCards" class="relic-cards"></div>
+ </div>
+ </div>
+ </section>
+ </div>
 </div>
 
-<script type="module" src="assets/js/main.js?v=2.1"></script>
+<script type="module" src="assets/js/main.js?v=3.0"></script>
 </body>
 </html>

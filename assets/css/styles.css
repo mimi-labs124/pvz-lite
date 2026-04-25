@@ -720,3 +720,73 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* ── Upgrade flash on plant ── */
 .plant.upgrade-flash { animation: upgrade-flash .5s ease-out; }
 @keyframes upgrade-flash { 0% { box-shadow: inset 0 0 30px rgba(250, 204, 21, .6); } 100% { box-shadow: inset 0 0 12px rgba(250, 204, 21, .3); } }
+
+
+/* ── Sun collected animation ── */
+.sun.collected {
+	pointer-events: none;
+	animation: sun-collected .4s ease-out forwards;
+}
+@keyframes sun-collected {
+	0% { opacity: 1; transform: scale(1); }
+	50% { opacity: .7; transform: scale(1.3); }
+	100% { opacity: 0; transform: translateY(-40px) scale(.5); }
+}
+
+/* ── Shovel cursor ── */
+.board.shovel-cursor { cursor: crosshair; }
+.board.shovel-cursor .cell:hover { outline: 2px solid #ef4444; }
+
+/* ── Shovel button active ── */
+.shovel-btn.active {
+	background: rgba(239, 68, 68, .25) !important;
+	border-color: #ef4444 !important;
+	color: #fca5a5 !important;
+}
+
+/* ── Speed button active ── */
+.speed-btn.active {
+	background: rgba(34, 211, 238, .25) !important;
+	border-color: #22d3ee !important;
+}
+
+/* ── XP bar on plant ── */
+.plant .xp-bar {
+	position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+	background: rgba(0, 0, 0, .3); border-radius: 2px;
+}
+.plant .xp-bar i {
+	display: block; height: 100%; background: #818cf8;
+	border-radius: 2px; transition: width .3s;
+}
+
+/* ── Upgrade hint on plant ── */
+.plant .upgrade-hint {
+	position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+	font-size: 8px; white-space: nowrap; opacity: .7;
+	text-shadow: 0 1px 2px #000; pointer-events: none;
+}
+.plant .upgrade-hint.ready {
+	color: #4ade80; opacity: 1; animation: upgrade-ready-pulse 1.2s infinite;
+}
+.plant .upgrade-hint.max {
+	color: #facc15; opacity: 1;
+}
+@keyframes upgrade-ready-pulse {
+	0%, 100% { text-shadow: 0 0 4px rgba(74, 222, 128, .4); }
+	50% { text-shadow: 0 0 10px rgba(74, 222, 128, .8); }
+}
+
+/* ── Zombie unconquered buff indicator ── */
+.zombie.unconquered-buff {
+	outline: 2px solid rgba(251, 146, 60, .7) !important;
+	box-shadow: 0 0 10px rgba(251, 146, 60, .4);
+}
+
+/* ── Territory auto-conquest progress bar ── */
+.cell .auto-conquest-bar {
+	position: absolute; bottom: 0; left: 0; height: 3px;
+	background: linear-gradient(90deg, var(--territory), var(--good));
+	border-radius: 2px; transition: width .3s; z-index: 5;
+}
+
