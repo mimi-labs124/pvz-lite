@@ -2,7 +2,7 @@
 // PVZ Lite: Chaos Awakening — 主遊戲協調器
 // ═══════════════════════════════════════════════
 
-import { rows, cols, PLANTS, ZOMBIES, SPELLS, XP_LEVELS, DIFFICULTY, BOSS_WAVES } from './config.js';
+import { rows, cols, PLANTS, ZOMBIES, SPELLS, DIFFICULTY, BOSS_WAVES, updateRows } from './config.js';
 import {
  boardEl, shopEl, mobileShopEl, sunEl, killsEl, waveEl, mowerEl,
  pauseBtn, overlayEl, endTitleEl, endTextEl, battleStatusEl, statusTitleEl, statusTextEl, modifierTagEl,
@@ -33,6 +33,56 @@ import { applyEvolutionToPlant, getEvolutionBonus } from './systems/evolution.js
 import { bindPauseControl, bindKeyboardShortcuts } from './ui/controls.js';
 
 let state, loopId, lastTime = 0, isPaused = false, territoryDirty = true;
+
+// ── Plant Tooltip ──
+let tooltipEl = null;
+function ensureTooltip() {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'plantTooltip';
+    document.body.appendChild(tooltipEl);
+  }
+  return tooltipEl;
+}
+function showPlantTooltip(plant, ev) {
+  const el = ensureTooltip();
+  if (!plant || !ev) { el.classList.remove('show'); return; }
+  const def = PLANTS[plant.type];
+  if (!def) return;
+  const lv = plant.level || 1;
+  const hpPct = Math.max(0, Math.min(100, (plant.hp / plant.maxHp) * 100));
+  const upgradeCost = lv < 3
+    ? Math.floor((def.cost || 50) * (lv === 1 ? 0.6 : 1.0) * lv)
+    : null;
+  const terrain = getCellTerrain(state, plant.row, plant.col);
+  const terTag = terrain && terrain !== 'plain' ? `<span class="terrain-tag">${terrain}</span>` : '';
+  const kills = plant.kills || 0;
+  const xp = plant.xp || 0;
+  // Special ability
+  let special = '';
+  if (def.desc) special = def.desc;
+  const evo = getEvolutionBonus(plant.type, lv);
+  if (evo?.regen) special += ' | 每秒回血';
+  if (evo?.reflectDmg) special += ` | 反傷 ${evo.reflectDmg}`;
+  if (evo?.aoeSun) special += ' | AOE陽光';
+  el.innerHTML = `
+    <div class="tt-header"><span class="tt-emoji">${def.emoji}</span><span class="tt-name">${def.name}<span class="tt-lv">Lv.${lv}</span>${terTag}</span></div>
+    <div class="tt-hp-wrap"><div class="tt-hp-bar"><i></i></div><span class="tt-hp-text">${Math.floor(plant.hp)}/${plant.maxHp}</span></div>
+    <div class="tt-stats">💀 擊殺: ${kills} | ⭐ XP: ${xp}</div>
+    <div class="tt-special">${special}</div>
+    ${upgradeCost !== null ? `<div class="tt-cost">⬆ 升級費用: ${upgradeCost} ☀️</div>` : `<div class="tt-cost">⭐ MAX</div>`}
+  `;
+  el.querySelector('.tt-hp-bar i').style.width = `${hpPct}%`;
+  el.classList.add('show');
+  // Position near cursor
+  const x = ev.clientX + 16;
+  const y = ev.clientY - 10;
+  el.style.left = `${Math.min(x, window.innerWidth - 270)}px`;
+  el.style.top = `${Math.min(y, window.innerHeight - el.offsetHeight - 10)}px`;
+}
+function hidePlantTooltip() {
+  if (tooltipEl) tooltipEl.classList.remove('show');
+}
 
 // ═══════════════════════════════════════════════
 // 啟動
@@ -80,6 +130,16 @@ export function startGame() {
 // ═══════════════════════════════════════════════
 
 function startNextWave() {
+ // ── 動態行數：隨波次增加 lanes ──
+ if (updateRows(state.wave)) {
+   makeBoard();
+   boardEl.addEventListener('pointerdown', e => { /* re-bind handled by bindGameEvents */ });
+   // Expand lawnmowers array
+   while (state.lawnmowers.length < rows) {
+     state.lawnmowers.push({ row: state.lawnmowers.length, active: false, used: false });
+   }
+   battleLog(`⬆ 新路線解鎖！現在 ${rows} 條路`, 'success');
+ }
  startWaveSpawns(state);
  state.waveActive = true;
  state.spawnTimer = 0;
@@ -504,13 +564,6 @@ function handleUpgrade(r, c) {
 		return;
 	}
 
-	// ── XP 門檻：經驗必須達標才能升級 ──
-	const nextLevelXP = XP_LEVELS[currentLevel];
-	if (nextLevelXP !== undefined && (plant.xp || 0) < nextLevelXP) {
-		showChaosAlert(`❌ 經驗不足！需要 ${nextLevelXP} XP（目前 ${plant.xp || 0}）`);
-		return;
-	}
-
 	const upgradeCost = Math.floor((PLANTS[plant.type]?.cost || 50) * (currentLevel === 1 ? 0.6 : 1.0) * currentLevel);
 	if (state.sun < upgradeCost) {
 		flash(sunEl);
@@ -628,7 +681,31 @@ function castSpell(name) {
  const def = SPELLS[name];
  if (!def) return;
  state.spellCooldowns[name] = def.cooldown;
- def.apply(state);
+ // ── 法術邏輯 ──
+ switch (name) {
+   case 'frostwave':
+     state.zombies.forEach(z => { z.frozen = true; z.frozenTimer = 3; });
+     battleLog('❄️ 冰霜之浪：全場凍結 3 秒！', 'info');
+     break;
+   case 'sunburst':
+     state.sun += 150;
+     battleLog('☀️ 陽光爆發：+150 陽光', 'success');
+     break;
+   case 'timewarp':
+     state.zombies.forEach(z => z.slowTimer = Math.max(z.slowTimer || 0, 8));
+     battleLog('⏳ 時間扭曲：全場減速 8 秒', 'info');
+     break;
+   case 'plantSwap':
+     state.swapMode = true;
+     state.swapFirst = null;
+     battleLog('🔄 植物交換：點擊兩棵植物交換位置', 'info');
+     break;
+   case 'annihilate':
+     const sorted = [...state.zombies].sort((a, b) => a.hp - b.hp);
+     for (let i = 0; i < Math.min(3, sorted.length); i++) sorted[i].hp = 0;
+     battleLog('⚡ 殲滅光束：消滅 3 隻最弱殭屍', 'boss');
+     break;
+ }
  sfx('spell');
  showChaosAlert(`✨ ${def.name}！`);
  render();
@@ -698,7 +775,10 @@ function handleSwapMode(r, c) {
  state.swapMode = false;
  state.swapFirst = null;
  sfx('spell');
- showChaosAlert('🔄 植物交換完成！');
+ const n1 = PLANTS[first.plant.type]?.name || '植物';
+ const n2 = PLANTS[plant.type]?.name || '植物';
+ showChaosAlert(`🔄 ${n1} ↔ ${n2} 交換完成！`);
+ battleLog(`🔄 ${n1} ↔ ${n2} 交換完成`, 'info');
  render();
  return true;
 }
@@ -1041,6 +1121,15 @@ function syncStats() {
 
  // 前線推進條
  updateFrontlineGauge();
+ // ── 事件通知 (非同步產生的, 在 sync 時處理) ──
+ if (state.lastChaosMessage) {
+   battleLog(state.lastChaosMessage, 'danger');
+   state.lastChaosMessage = null;
+ }
+ if (state.lastCleanupEvent) {
+   battleLog(state.lastCleanupEvent, 'info');
+   state.lastCleanupEvent = null;
+ }
 }
 
 function updateComboDisplay() {
@@ -1124,23 +1213,35 @@ export function bindGameEvents() {
  handleCellClick(r, c);
  });
 
- // ── Sun hover collection ──
- boardEl.addEventListener('mouseover', e => {
- const sunTarget = e.target.closest('.sun');
- if (!sunTarget) return;
- if (state.gameOver || state.draftPhase) return;
- ensureAudio();
- const sunId = Number(sunTarget.dataset.sunId);
- const sunObj = state.suns.find(s => s.id === sunId);
- if (!sunObj || sunObj.collected) return;
- // Mark as collected (animation will play, then removed)
- sunObj.collected = true;
- sunObj.collectTime = 0.4;
- state.sun += sunObj.value;
- syncStats();
- updateShop(state);
- sfx('sun');
- });
+// ── Sun hover collection + Plant Tooltip ──
+  boardEl.addEventListener('mouseover', e => {
+    // Plant tooltip: check if hovering a plant cell
+    const plantCell = e.target.closest('.cell');
+    if (plantCell) {
+      const r = parseInt(plantCell.dataset.row);
+      const c = parseInt(plantCell.dataset.col);
+      const key = cellKey(r, c);
+      const plant = state.plants.get(key);
+      if (plant) { showPlantTooltip(plant, e); return; }
+    }
+    hidePlantTooltip();
+
+    // Sun collection
+    const sunTarget = e.target.closest('.sun');
+    if (!sunTarget) return;
+    if (state.gameOver || state.draftPhase) return;
+    ensureAudio();
+    const sunId = Number(sunTarget.dataset.sunId);
+    const sunObj = state.suns.find(s => s.id === sunId);
+    if (!sunObj || sunObj.collected) return;
+    // Mark as collected (animation will play, then removed)
+    sunObj.collected = true;
+    sunObj.collectTime = 0.4;
+    state.sun += sunObj.value;
+    syncStats();
+    updateShop(state);
+    sfx('sun');
+  });
 
  // Shovel button
  const shovelBtn = document.getElementById('shovelBtn');

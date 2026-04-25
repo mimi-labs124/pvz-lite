@@ -587,7 +587,29 @@ button:hover { background: rgba(139, 92, 246, .18); border-color: var(--accent);
 input[type=range] { width: 100%; accent-color: var(--accent); }
 .mobile-bar { display: none; }
 
-/* ── Plant Info Panel (replaces XP bar) ── */
+/* ── Plant Tooltip (hover) ── */
+#plantTooltip {
+  position: fixed; pointer-events: none; z-index: 9999;
+  background: rgba(10, 10, 20, 0.96); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 10px 12px; font-size: 11px; min-width: 200px;
+  max-width: 260px; box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  display: none; flex-direction: column; gap: 6px;
+}
+#plantTooltip.show { display: flex; }
+#plantTooltip .tt-header { display: flex; align-items: center; gap: 8px; }
+#plantTooltip .tt-emoji { font-size: 22px; }
+#plantTooltip .tt-name { font-weight: 700; font-size: 13px; }
+#plantTooltip .tt-lv { color: var(--accent2); font-size: 10px; margin-left: 4px; }
+#plantTooltip .tt-hp-wrap { display: flex; align-items: center; gap: 6px; }
+#plantTooltip .tt-hp-bar { flex: 1; height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden; }
+#plantTooltip .tt-hp-bar i { display: block; height: 100%; background: var(--good); transition: width .3s; }
+#plantTooltip .tt-hp-text { font-size: 10px; color: var(--muted); min-width: 42px; text-align: right; }
+#plantTooltip .tt-stats { font-size: 10px; color: var(--muted); }
+#plantTooltip .tt-special { font-size: 10px; color: var(--warn); }
+#plantTooltip .terrain-tag { font-size: 9px; padding: 1px 4px; border-radius: 4px; background: rgba(255,255,255,.08); margin-left: 4px; }
+#plantTooltip .tt-cost { font-size: 10px; color: var(--accent2); margin-top: 2px; }
+
+/* ── Plant Info Panel (deprecated) ── */
 .plant-info-panel {
  display: flex; flex-direction: column; gap: 4px;
  font-size: 11px; max-height: 180px; overflow-y: auto;

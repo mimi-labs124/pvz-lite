@@ -105,6 +105,7 @@ function applyChaosEffect(state, event) {
           }
         }
       }
+      state.lastChaosMessage = `🌋 大地震！第 ${affectedRows.map(r => r + 1).join('、')} 行植物被震移`;
       break;
     }
   }

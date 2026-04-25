@@ -44,15 +44,16 @@ export function cleanupState(state, dt) {
 				for (const rowOff of [-1, 0, 1]) {
 					const r = z.row + rowOff;
 					if (r < 0 || r >= 5) continue;
-					state.zombies.push({
-						id: state.nextZombieId++, kind: 'backup', row: r,
-						x: Math.max(0, z.x + (rowOff === 0 ? -0.3 : 0.1)),
-						hp: backupBase.hp, maxHp: backupBase.hp, speed: backupBase.speed,
-						biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: Math.round(backupBase.bite * biteScale),
-					});
-				}
-			}
-		}
+state.zombies.push({
+          id: state.nextZombieId++, kind: 'backup', row: r,
+          x: Math.max(0, z.x + (rowOff === 0 ? -0.3 : 0.1)),
+          hp: backupBase.hp, maxHp: backupBase.hp, speed: backupBase.speed,
+          biteTimer: 0, slowTimer: 0, angry: false, shield: false, biteDmg: Math.round(backupBase.bite * biteScale),
+        });
+      }
+    }
+    state.lastCleanupEvent = '💃 舞王倒了！伴舞殭屍出現！';
+  }
 
 		// 亡者歸來 — 復活
 		if (chaosUndeadCheck(state, z)) {

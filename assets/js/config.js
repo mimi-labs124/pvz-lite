@@ -2,8 +2,17 @@
 // PVZ Lite: Chaos Garden — 肉鴿塔防 遊戲配置
 // ═══════════════════════════════════════════════
 
-export const rows = 5;
+export let rows = 5;
 export const cols = 9;
+
+export function updateRows(wave) {
+  const newRows = Math.min(5 + Math.floor(Math.max(0, wave - 1) / 5), 9);
+  if (newRows !== rows) {
+    rows = newRows;
+    return true; // changed
+  }
+  return false; // no change
+}
 
 // ── 植物定義 ──────────────────────────────────
 export const PLANTS = {
